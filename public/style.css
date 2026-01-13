@@ -1,0 +1,88 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+#map {
+    flex: 1;
+    height: 100vh; /* Changed from 100% to 100vh to ensure visibility */
+    background-color: #eee; /* Light grey so you can see if the div exists */
+}
+
+.side-panel {
+    width: 300px;
+    background: #f8f9fa;
+    padding: 25px;
+    box-shadow: -2px 0 15px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.logo {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 30px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.status-box {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+#status-dot {
+    color: red;
+    margin-right: 5px;
+}
+
+.history-container {
+    margin-top: 20px;
+    width: 100%;
+}
+
+#history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+#history-table th, #history-table td {
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+}
+
+#history-table tr:first-child {
+    background-color: #e8f4fd; /* Highlight the newest entry */
+}

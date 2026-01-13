@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQLink</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+
+<div class="container">
+    <div id="map"></div>
+
+    <div class="side-panel">
+        <img src="Logo.png" class="logo" alt="Logo">
+        
+        <div class="status-box">
+            <span id="status-dot" style="color: red;">●</span> 
+            <span id="status-text">Waiting for APRS Data...</span>
+        </div>
+
+        <input type="text" id="callSign" placeholder="Enter Call Sign">
+        <button onclick="trackCallsign()">Track</button>
+        <button onclick="registerAccount()">Register</button>
+
+        <div id="tracking-info" style="display: none; margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+            <h4 id="info-callsign" style="margin: 0; color: #007bff;">---</h4>
+            <p style="font-size: 12px; margin: 5px 0;">
+                <b>Lat:</b> <span id="info-lat">---</span><br>
+                <b>Lng:</b> <span id="info-lng">---</span><br>
+                <b>Msg:</b> <span id="info-msg">---</span>
+            </p>
+        </div>
+
+        <div class="history-container" style="margin-top: 20px;">
+            <h4>Recent Activity</h4>
+            <table style="width: 100%; font-size: 12px;">
+                <thead>
+                    <tr style="text-align: left;">
+                        <th>Callsign</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
