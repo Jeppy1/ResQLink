@@ -14,7 +14,7 @@
   "dependencies": {
     "express": "^5.2.1",
     "net": "^1.0.2",
+    "pusher": "^5.3.2",
     "socket.io": "^4.8.3"
   }
-
 }
