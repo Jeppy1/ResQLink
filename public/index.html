@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ResQLink</title>
+    <title>ResQLink | APRS Tracker</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
@@ -14,33 +14,34 @@
     <div id="map"></div>
 
     <div class="side-panel">
-        <img src="Logo.png" class="logo" alt="Logo">
+        <img src="Logo.png" class="logo" alt="ResQLink Logo">
         
         <div class="status-box">
             <span id="status-dot" style="color: red;">●</span> 
-            <span id="status-text">Waiting for APRS Data...</span>
+            <span id="status-text">Connecting to APRS-IS...</span>
         </div>
 
         <input type="text" id="callSign" placeholder="Enter Call Sign">
         <button onclick="trackCallsign()">Track</button>
         <button onclick="registerAccount()">Register</button>
 
-        <div id="tracking-info" style="display: none; margin-top: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px;">
-            <h4 id="info-callsign" style="margin: 0; color: #007bff;">---</h4>
-            <p style="font-size: 12px; margin: 5px 0;">
-                <b>Lat:</b> <span id="info-lat">---</span><br>
-                <b>Lng:</b> <span id="info-lng">---</span><br>
-                <b>Date:</b> <span id="info-date">---</span><br> <b>Msg:</b> <span id="info-msg">---</span>
+        <div id="tracking-info" style="display: none; margin-top: 20px; padding: 15px; background: #fff; border-left: 4px solid #007bff; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+            <h4 id="info-callsign" style="margin: 0 0 10px 0; color: #007bff; font-size: 18px;">---</h4>
+            <p style="font-size: 13px; margin: 0; line-height: 1.6;">
+                <b>📍 Location:</b> <span id="info-address" style="color: #d9534f;">Detecting...</span><br>
+                <b>🌐 Coords:</b> <span id="info-lat">---</span>, <span id="info-lng">---</span><br>
+                <b>📅 Date:</b> <span id="info-date">---</span><br>
+                <b>💬 Msg:</b> <i id="info-msg">---</i>
             </p>
         </div>
 
         <div class="history-container" style="margin-top: 20px;">
-            <h4>Recent Activity</h4>
-            <table style="width: 100%; font-size: 12px;">
+            <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px;">Recent Activity</h4>
+            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
                 <thead>
-                    <tr style="text-align: left;">
-                        <th>Callsign</th>
-                        <th>Time</th>
+                    <tr style="text-align: left; color: #666;">
+                        <th style="padding: 5px;">Callsign</th>
+                        <th style="padding: 5px;">Time</th>
                     </tr>
                 </thead>
                 <tbody id="history-body"></tbody>
