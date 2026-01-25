@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ResQLink | APRS Tracker</title>
+    <title>ResQLink | Disaster Risk Reduction APRS Tracker</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 </head>
 <body>
@@ -17,34 +18,46 @@
         <img src="Logo.png" class="logo" alt="ResQLink Logo">
         
         <div class="status-box">
-            <span id="status-dot" style="color: red;">●</span> 
+            <span id="status-dot">●</span> 
             <span id="status-text">Connecting to APRS-IS...</span>
         </div>
 
-        <input type="text" id="callSign" placeholder="Enter Call Sign">
-        <button onclick="trackCallsign()">Track</button>
-        <button onclick="registerAccount()">Register</button>
-
-        <div id="tracking-info" style="display: none; margin-top: 20px; padding: 15px; background: #fff; border-left: 4px solid #007bff; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-            <h4 id="info-callsign" style="margin: 0 0 10px 0; color: #007bff; font-size: 18px;">---</h4>
-            <p style="font-size: 13px; margin: 0; line-height: 1.6;">
-                <b>📍 Location:</b> <span id="info-address" style="color: #d9534f;">Detecting...</span><br>
-                <b> Coordinates:</b> <span id="info-lat">---</span>, <span id="info-lng">---</span><br>
-                <b> Date:</b> <span id="info-date">---</span><br>
-                <b> Msg:</b> <i id="info-msg">---</i>
-            </p>
+        <div class="control-group">
+            <input type="text" id="callSign" placeholder="Enter Callsign (e.g. DY6YAI)" autocomplete="off">
+            <div class="button-row">
+                <button onclick="trackCallsign()" class="btn-track"><i class="fa-solid fa-location-crosshairs"></i> Track</button>
+                <button onclick="registerAccount()" class="btn-reg">Register</button>
+            </div>
         </div>
 
-        <div class="history-container" style="margin-top: 20px;">
-            <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px;">Recent Activity</h4>
-            <table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+        <div id="tracking-info">
+            <h4 id="info-callsign">---</h4>
+            <div class="info-content">
+                <p><strong><i class="fa-solid fa-map-location-dot"></i> Location:</strong><br>
+                <span id="info-address">Detecting Barangay...</span></p>
+                
+                <p><strong><i class="fa-solid fa-earth-asia"></i> Coordinates:</strong><br>
+                <span id="info-lat">---</span>, <span id="info-lng">---</span></p>
+                
+                <p><strong><i class="fa-solid fa-calendar-day"></i> Date & Time:</strong><br>
+                <span id="info-date">---</span></p>
+                
+                <p><strong><i class="fa-solid fa-comment-dots"></i> Message:</strong><br>
+                <i id="info-msg">Waiting for packets...</i></p>
+            </div>
+        </div>
+
+        <div class="history-container">
+            <h4><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h4>
+            <table class="activity-table">
                 <thead>
-                    <tr style="text-align: left; color: #666;">
-                        <th style="padding: 5px;">Callsign</th>
-                        <th style="padding: 5px;">Time</th>
+                    <tr>
+                        <th>Callsign</th>
+                        <th>Received</th>
                     </tr>
                 </thead>
-                <tbody id="history-body"></tbody>
+                <tbody id="history-body">
+                    </tbody>
             </table>
         </div>
     </div>
