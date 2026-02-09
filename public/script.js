@@ -1,80 +1,91 @@
 // 1. Initialize Pusher
-Pusher.logToConsole = true; 
-const pusher = new Pusher('899f970a7cf34c9a73a9', { 
-    cluster: 'ap1' 
-});
+const pusher = new Pusher('899f970a7cf34c9a73a9', { cluster: 'ap1' });
 const channel = pusher.subscribe('aprs-channel');
 
-// 2. Map Initialization
+// 2. Map Setup
 var map = L.map('map').setView([13.5857, 124.2160], 10);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors'
-}).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 var markers = {};
-var trackPaths = {}; 
-var trackCoords = {}; 
+var trackPaths = {};
+var trackCoords = {};
 
-// --- NEW: Icon Mapping Logic ---
+// --- 3. COMPREHENSIVE SYMBOL MAPPING ---
+// Maps raw APRS codes to Human-Readable names for the popup
+const symbolNames = {
+    '/)': 'Fire Station',
+    '/$': 'Phone Station',
+    '/y': 'Yacht/Sailboat',
+    '/I': 'Island Station',
+    '/<': 'Motorcycle',
+    '/>': 'Car',
+    '/[': 'Human/Person',
+    '/-': 'House/HQ',
+    '/a': 'Ambulance',
+    '/f': 'Fire Truck',
+    '/r': 'iGate Receiver',
+    '/_': 'Weather Station',
+    '/v': 'Van',
+    '/u': 'Truck',
+    '/X': 'Helicopter',
+    '/s': 'Ship/Boat',
+    '/b': 'Bicycle',
+    '/H': 'Hospital'
+};
+
+// Maps raw APRS codes to specific PNG files in your icons folder
 function getSymbolIcon(symbol) {
-    // Define which image to use for each APRS code
     const iconMapping = {
-        '/>': 'car.png',       // Car
-        '/[': 'human.png',    // Human/Person
-        '/-': 'house.png',     // House/HQ
-        '/a': 'ambulance.png', // Ambulance
-        '/f': 'fire.png',      // Fire Truck
-        '/u': 'truck.png',     // Truck
-        '/v': 'van.png',       // Van
-        '/X': 'helo.png'       // Helicopter
+        '/)': 'fire_station.png',
+        '/<': 'motorcycle.png',
+        '/>': 'car.png',
+        '/[': 'human.png',
+        '/-': 'house.png',
+        '/a': 'ambulance.png',
+        '/f': 'fire_truck.png',
+        '/r': 'igate.png',
+        '/_': 'weather.png',
+        '/v': 'van.png',
+        '/u': 'truck.png',
+        '/X': 'helo.png'
     };
 
     const fileName = iconMapping[symbol] || 'default-pin.png';
 
     return L.icon({
-        iconUrl: `icons/${fileName}`, // Assumes images are in public/icons/
-        iconSize: [32, 32],           // Size of the icon
-        iconAnchor: [16, 16],         // Point of the icon which corresponds to marker's location
-        popupAnchor: [0, -15]         // Point from which the popup should open relative to the iconAnchor
+        iconUrl: `icons/${fileName}`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        popupAnchor: [0, -15]
     });
 }
 
-// 3. Reverse Geocoding
+// 4. Reverse Geocoding
 async function getAddress(lat, lng) {
     try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
-        const data = await response.json();
-        const addr = data.address;
-        const street = addr.road || "";
-        const barangay = addr.village || addr.suburb || addr.neighbourhood || "";
-        const townCity = addr.city || addr.town || addr.municipality || "";
-
-        let fullAddr = "";
-        if (street) fullAddr += street + ", ";
-        if (barangay) fullAddr += "Brgy. " + barangay + ", ";
-        if (townCity) fullAddr += townCity;
-
-        return fullAddr || "Location Name Unavailable";
-    } catch (error) {
-        return "Detecting Location...";
-    }
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
+        const data = await res.json();
+        const a = data.address;
+        const street = a.road || "";
+        const barangay = a.village || a.suburb || a.neighbourhood || "";
+        const townCity = a.city || a.town || a.municipality || "";
+        return `${street ? street + ', ' : ''}Brgy. ${barangay}, ${townCity}`;
+    } catch (e) { return "Detecting Location..."; }
 }
 
-// 4. Search and Pan Functionality
+// 5. Search/Pan Function
 function trackCallsign() {
     const searchInput = document.getElementById('callSign').value.toUpperCase().trim();
     if (markers[searchInput]) {
-        const marker = markers[searchInput];
-        map.setView(marker.getLatLng(), 15, { animate: true, duration: 1.5 });
-        marker.openPopup();
+        map.setView(markers[searchInput].getLatLng(), 15, { animate: true });
+        markers[searchInput].openPopup();
     } else {
-        alert("Callsign not found on map.");
+        alert("Callsign not found.");
     }
 }
 
-// 5. Main Update Logic
+// 6. MAIN UPDATE LOGIC
 async function updateMapAndUI(data) {
-    // Note: data.symbol is now being sent from your updated server.js
     const { callsign, lat, lng, details, symbol } = data;
     const numLat = parseFloat(lat);
     const numLng = parseFloat(lng);
@@ -82,7 +93,8 @@ async function updateMapAndUI(data) {
 
     if (isNaN(numLat) || isNaN(numLng)) return;
 
-    const addressName = await getAddress(numLat, numLng);
+    const address = await getAddress(numLat, numLng);
+    const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const timeStr = new Date().toLocaleTimeString();
 
     // --- Pathing Logic ---
@@ -94,25 +106,28 @@ async function updateMapAndUI(data) {
     if (trackCoords[callsign].length > 30) trackCoords[callsign].shift();
     trackPaths[callsign].setLatLngs(trackCoords[callsign]);
 
-    // --- Update Sidebar ---
-    document.getElementById("status-dot").style.color = "#28a745";
-    document.getElementById("status-text").innerText = `Live: ${callsign}`;
+    // --- Sidebar Update ---
     document.getElementById("tracking-info").style.display = "block";
     document.getElementById("info-callsign").innerText = callsign;
-    document.getElementById("info-address").innerText = addressName;
-    document.getElementById("info-lat").innerText = `${numLat.toFixed(4)}°`;
-    document.getElementById("info-lng").innerText = `${numLng.toFixed(4)}°`;
+    document.getElementById("info-address").innerText = address;
+    document.getElementById("info-lat").innerText = numLat.toFixed(4);
+    document.getElementById("info-lng").innerText = numLng.toFixed(4);
     document.getElementById("info-date").innerText = `${new Date().toLocaleDateString()} ${timeStr}`;
     document.getElementById("info-msg").innerText = details || "Active Station";
 
-    // --- NEW: Marker Icon Logic ---
+    // --- Marker & Popup Update ---
     const customIcon = getSymbolIcon(symbol);
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 180px;">
             <h4 style="margin:0; color:#007bff;">${callsign}</h4>
-            <b style="color: #d9534f;">📍 ${addressName}</b><br>
+            <b style="color: #d9534f;">📍 ${address}</b><br>
             <hr style="margin:5px 0; border:0; border-top:1px solid #eee;">
-            <small><b>Type:</b> ${symbol}<br><b>Time:</b> ${timeStr}</small>
+            <p style="margin: 5px 0; font-size: 13px;">
+                <b>Type:</b> ${typeName}<br>
+                <b>Coords:</b> ${numLat.toFixed(4)}, ${numLng.toFixed(4)}<br>
+                <b>Time:</b> ${timeStr}<br>
+                <b>Status:</b> ${details}
+            </p>
         </div>
     `;
 
