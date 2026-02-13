@@ -13,8 +13,8 @@ const server = http.createServer(app);
 app.use(express.json()); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- 1. MONGODB CONFIGURATION ---
-const mongoURI = process.env.MONGODB_URL || 'mongodb://localhost:27017/resqlink';
+// Add '/resqlink' to the end of your public URL
+const mongoURI = process.env.MONGODB_URL || "mongodb://mongo:qEtCfZOBIfeEtLRNyxWBhGnLDZFlUkGf@tramway.proxy.rlwy.net:41316/resqlink";
 
 mongoose.connect(mongoURI, {
     serverSelectionTimeoutMS: 5000 // Fails faster if the DB is down
@@ -27,6 +27,7 @@ mongoose.connection.on('error', err => {
     console.error('Mongoose connection error:', err);
 });
 
+// Update your Schema definition
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
     lat: String,
@@ -34,7 +35,8 @@ const trackerSchema = new mongoose.Schema({
     symbol: String,
     details: String,
     lastSeen: { type: Date, default: Date.now }
-});
+}, { bufferCommands: false }); // Stop the 10-second waiting
+
 const Tracker = mongoose.model('Tracker', trackerSchema);
 
 // --- 2. PUSHER INITIALIZATION ---
