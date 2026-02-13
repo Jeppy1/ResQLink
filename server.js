@@ -3,20 +3,23 @@ const http = require('http');
 const net = require('net');
 const Pusher = require('pusher');
 const path = require('path');
-const mongoose = require('mongoose'); //
+const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
 
+// --- NEW: MIDDLEWARE FOR JSON ---
+// This allows your "Register" button to send data to the server
+app.use(express.json()); 
+app.use(express.static(path.join(__dirname, 'public')));
+
 // --- 1. MONGODB CONFIGURATION ---
-// Railway automatically provides MONGODB_URL via environment variables
 const mongoURI = process.env.MONGODB_URL || 'mongodb://localhost:27017/resqlink';
 
 mongoose.connect(mongoURI)
     .then(() => console.log("SUCCESS: Connected to MongoDB Database"))
     .catch(err => console.error("DATABASE ERROR:", err));
 
-// Define Schema: This tells the database what data to store for each tracker
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
     lat: String,
@@ -36,20 +39,49 @@ const pusher = new Pusher({
     useTLS: true
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-
 // --- 3. API ENDPOINTS ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Endpoint for frontend to fetch Last Known Positions on refresh
+// Fetch historical positions on refresh
 app.get('/api/positions', async (req, res) => {
     try {
         const positions = await Tracker.find({});
         res.json(positions);
     } catch (err) {
         res.status(500).send(err);
+    }
+});
+
+// --- NEW: MANUAL REGISTRATION ROUTE ---
+// Use this for your "Register" button
+app.post('/api/register-station', async (req, res) => {
+    try {
+        const { callsign, lat, lng, details, symbol } = req.body;
+        
+        const updateData = {
+            callsign: callsign.toUpperCase().trim(),
+            lat: lat.toString(),
+            lng: lng.toString(),
+            symbol: symbol || "/-",
+            details: details || "Manually Registered",
+            lastSeen: new Date()
+        };
+
+        const newStation = await Tracker.findOneAndUpdate(
+            { callsign: updateData.callsign }, 
+            updateData, 
+            { upsert: true, new: true } // Upsert ensures it's saved permanently
+        );
+
+        // Also trigger Pusher so it appears on the map instantly without refresh
+        pusher.trigger("aprs-channel", "new-data", updateData);
+
+        res.status(200).json({ message: "Station Registered!", data: newStation });
+    } catch (err) {
+        console.error("Registration Error:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -67,7 +99,6 @@ function connectAPRS() {
 
 connectAPRS();
 
-// Reconnection logic
 client.on('error', (err) => {
     console.error("APRS Socket Error:", err.message);
     setTimeout(connectAPRS, 5000);
@@ -81,8 +112,6 @@ client.on('close', () => {
 // --- 5. MAIN DATA PROCESSING ---
 client.on('data', async (data) => {
     const rawPacket = data.toString();
-    
-    // Flexible parsing for iGate and Tracker coordinates
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
     const symbolMatch = rawPacket.match(/([\/\\])(.)/);
@@ -91,7 +120,7 @@ client.on('data', async (data) => {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const symbol = symbolMatch ? symbolMatch[1] + symbolMatch[2] : "/>"; 
-        const callsign = rawPacket.split('>')[0];
+        const callsign = rawPacket.split('>')[0].toUpperCase().trim();
         const comment = rawPacket.split(/[:!]/).pop() || "Active Tracker";
 
         const updateData = {
@@ -103,22 +132,19 @@ client.on('data', async (data) => {
             lastSeen: new Date()
         };
 
-        // SAVE/UPDATE in MongoDB (Upsert)
         try {
             await Tracker.findOneAndUpdate(
                 { callsign: callsign }, 
                 updateData, 
                 { upsert: true }
             );
+            // Trigger live Pusher event
+            pusher.trigger("aprs-channel", "new-data", updateData);
         } catch (dbErr) {
             console.error("Failed to save to MongoDB:", dbErr);
         }
-
-        // Trigger live Pusher event
-        pusher.trigger("aprs-channel", "new-data", updateData)
-            .catch(err => console.error("Pusher Error:", err));
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080; // Changed to 8080 for Railway compatibility
 server.listen(PORT, () => console.log(`Server Live on port ${PORT}`));
