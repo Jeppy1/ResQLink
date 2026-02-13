@@ -3,40 +3,71 @@ const http = require('http');
 const net = require('net');
 const Pusher = require('pusher');
 const path = require('path');
+const mongoose = require('mongoose'); //
 
 const app = express();
 const server = http.createServer(app);
 
-// 1. Initialize Pusher with Railway Environment Variables
+// --- 1. MONGODB CONFIGURATION ---
+// Railway automatically provides MONGODB_URL via environment variables
+const mongoURI = process.env.MONGODB_URL || 'mongodb://localhost:27017/resqlink';
+
+mongoose.connect(mongoURI)
+    .then(() => console.log("SUCCESS: Connected to MongoDB Database"))
+    .catch(err => console.error("DATABASE ERROR:", err));
+
+// Define Schema: This tells the database what data to store for each tracker
+const trackerSchema = new mongoose.Schema({
+    callsign: { type: String, unique: true },
+    lat: String,
+    lng: String,
+    symbol: String,
+    details: String,
+    lastSeen: { type: Date, default: Date.now }
+});
+const Tracker = mongoose.model('Tracker', trackerSchema);
+
+// --- 2. PUSHER INITIALIZATION ---
 const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID,
-  key: process.env.PUSHER_KEY,
-  secret: process.env.PUSHER_SECRET,
-  cluster: process.env.PUSHER_CLUSTER,
-  useTLS: true
+    appId: process.env.PUSHER_APP_ID,
+    key: process.env.PUSHER_KEY,
+    secret: process.env.PUSHER_SECRET,
+    cluster: process.env.PUSHER_CLUSTER,
+    useTLS: true
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- 3. API ENDPOINTS ---
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 2. APRS-IS Connection Logic
+// Endpoint for frontend to fetch Last Known Positions on refresh
+app.get('/api/positions', async (req, res) => {
+    try {
+        const positions = await Tracker.find({});
+        res.json(positions);
+    } catch (err) {
+        res.status(500).send(err);
+    }
+});
+
+// --- 4. APRS-IS CONNECTION ---
 const client = new net.Socket();
 
 function connectAPRS() {
-    console.log("Connecting to APRS-IS...");
+    console.log("Attempting to connect to APRS-IS..."); 
     client.connect(14580, "asia.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n");
         client.write("#filter p/DU/DW/DV/DY/DZ\n"); 
-        console.log("Connected. Bridging packets to Pusher...");
+        console.log("SUCCESS: Connected to APRS-IS. Bridging packets to Pusher & DB...");
     });
 }
 
 connectAPRS();
 
-// Reconnection logic for stability
+// Reconnection logic
 client.on('error', (err) => {
     console.error("APRS Socket Error:", err.message);
     setTimeout(connectAPRS, 5000);
@@ -47,35 +78,45 @@ client.on('close', () => {
     setTimeout(connectAPRS, 5000);
 });
 
-client.on('data', (data) => {
+// --- 5. MAIN DATA PROCESSING ---
+client.on('data', async (data) => {
     const rawPacket = data.toString();
     
-    // 1. Loose matches for Latitude and Longitude
-    // These find the coordinates anywhere in the packet, even if they aren't together.
+    // Flexible parsing for iGate and Tracker coordinates
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
-    
-    // 2. Separate match for the Symbol (Table ID + Symbol Code)
     const symbolMatch = rawPacket.match(/([\/\\])(.)/);
 
     if (latMatch && lngMatch) {
-        // Calculate decimal degrees
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
-        
-        // Use the found symbol or default to a standard car if not detected
         const symbol = symbolMatch ? symbolMatch[1] + symbolMatch[2] : "/>"; 
-
         const callsign = rawPacket.split('>')[0];
         const comment = rawPacket.split(/[:!]/).pop() || "Active Tracker";
 
-        pusher.trigger("aprs-channel", "new-data", {
+        const updateData = {
             callsign: callsign,
             lat: lat.toFixed(4),
             lng: lng.toFixed(4),
             symbol: symbol, 
-            details: comment
-        }).catch(err => console.error("Pusher Error:", err));
+            details: comment,
+            lastSeen: new Date()
+        };
+
+        // SAVE/UPDATE in MongoDB (Upsert)
+        try {
+            await Tracker.findOneAndUpdate(
+                { callsign: callsign }, 
+                updateData, 
+                { upsert: true }
+            );
+        } catch (dbErr) {
+            console.error("Failed to save to MongoDB:", dbErr);
+        }
+
+        // Trigger live Pusher event
+        pusher.trigger("aprs-channel", "new-data", updateData)
+            .catch(err => console.error("Pusher Error:", err));
     }
 });
 
