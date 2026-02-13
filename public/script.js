@@ -11,7 +11,6 @@ var trackPaths = {};
 var trackCoords = {};
 
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
-// Maps raw APRS codes to Human-Readable names for the popup
 const symbolNames = {
     '/)': 'Fire Station',
     '/$': 'Phone Station',
@@ -33,7 +32,6 @@ const symbolNames = {
     '/H': 'Hospital'
 };
 
-// Maps raw APRS codes to specific PNG files in your icons folder
 function getSymbolIcon(symbol) {
     const iconMapping = {
         '/)': 'fire_station.png',
@@ -93,6 +91,12 @@ async function updateMapAndUI(data) {
 
     if (isNaN(numLat) || isNaN(numLng)) return;
 
+    // --- NEW: Update Connection Status on First Data ---
+    const statusText = document.getElementById("status-text");
+    const statusDot = document.getElementById("status-dot");
+    if (statusText) statusText.innerText = "Connected to APRS-IS";
+    if (statusDot) statusDot.style.color = "#28a745"; // Success Green
+
     const address = await getAddress(numLat, numLng);
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const timeStr = new Date().toLocaleTimeString();
@@ -125,7 +129,7 @@ async function updateMapAndUI(data) {
             <p style="margin: 5px 0; font-size: 13px;">
                 <b>Type:</b> ${typeName}<br>
                 <b>Coords:</b> ${numLat.toFixed(4)}, ${numLng.toFixed(4)}<br>
-                <b>Time:</b> ${timeStr}<br>
+                <b style="color: #555;">🕒 Last Seen: ${timeStr}</b><br>
                 <b>Status:</b> ${details}
             </p>
         </div>
@@ -148,5 +152,25 @@ async function updateMapAndUI(data) {
     row.innerHTML = `<td style="padding:5px;"><b>${callsign}</b></td><td style="padding:5px;">${timeStr}</td>`;
     if (historyBody.rows.length > 5) historyBody.deleteRow(5);
 }
+
+// Load historical data when the page opens
+window.onload = async () => {
+    // Wait for map to be ready
+    if (map) {
+        try {
+            const response = await fetch('/api/positions');
+            const history = await response.json();
+            
+            // Loop through the array and plot the Last Known Positions
+            history.forEach(data => {
+                updateMapAndUI(data); 
+            });
+            
+            console.log("SUCCESS: Loaded LKP data for " + history.length + " stations.");
+        } catch (err) {
+            console.error("Error loading historical data:", err);
+        }
+    }
+};
 
 channel.bind('new-data', updateMapAndUI);
