@@ -16,9 +16,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 // --- 1. MONGODB CONFIGURATION ---
 const mongoURI = process.env.MONGODB_URL || 'mongodb://localhost:27017/resqlink';
 
-mongoose.connect(mongoURI)
-    .then(() => console.log("SUCCESS: Connected to MongoDB Database"))
-    .catch(err => console.error("DATABASE ERROR:", err));
+mongoose.connect(mongoURI, {
+    serverSelectionTimeoutMS: 5000 // Fails faster if the DB is down
+})
+.then(() => console.log("SUCCESS: Connected to MongoDB Database"))
+.catch(err => console.error("DATABASE ERROR:", err));
+
+// Add this to verify the connection status
+mongoose.connection.on('error', err => {
+    console.error('Mongoose connection error:', err);
+});
 
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
