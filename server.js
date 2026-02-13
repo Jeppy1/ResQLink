@@ -8,26 +8,31 @@ const mongoose = require('mongoose');
 const app = express();
 const server = http.createServer(app);
 
-// --- NEW: MIDDLEWARE FOR JSON ---
-// This allows your "Register" button to send data to the server
+// Middleware
 app.use(express.json()); 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Add '/resqlink' to the end of your public URL
+// --- 1. MONGODB CONFIGURATION ---
 const mongoURI = process.env.MONGODB_URL || "mongodb://mongo:qEtCfZOBIfeEtLRNyxWBhGnLDZFlUkGf@tramway.proxy.rlwy.net:41316/resqlink";
 
-mongoose.connect(mongoURI, {
-    serverSelectionTimeoutMS: 5000 // Fails faster if the DB is down
-})
-.then(() => console.log("SUCCESS: Connected to MongoDB Database"))
-.catch(err => console.error("DATABASE ERROR:", err));
+// ASYNC CONNECTION: Ensures the server waits for the DB
+async function connectToDatabase() {
+    try {
+        await mongoose.connect(mongoURI, {
+            serverSelectionTimeoutMS: 5000,
+            bufferCommands: false // Keeps responses fast
+        });
+        console.log("SUCCESS: Connected to MongoDB Database");
+    } catch (err) {
+        console.error("DATABASE CONNECTION ERROR:", err.message);
+        // Retry connection after 5 seconds
+        setTimeout(connectToDatabase, 5000);
+    }
+}
 
-// Add this to verify the connection status
-mongoose.connection.on('error', err => {
-    console.error('Mongoose connection error:', err);
-});
+connectToDatabase();
 
-// Update your Schema definition
+// Define Schema
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
     lat: String,
@@ -35,7 +40,7 @@ const trackerSchema = new mongoose.Schema({
     symbol: String,
     details: String,
     lastSeen: { type: Date, default: Date.now }
-}, { bufferCommands: false }); // Stop the 10-second waiting
+}, { bufferCommands: false });
 
 const Tracker = mongoose.model('Tracker', trackerSchema);
 
@@ -53,8 +58,12 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Fetch historical positions on refresh
+// Fetch historical positions
 app.get('/api/positions', async (req, res) => {
+    // Check connection status before querying
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ error: "Database not ready" });
+    }
     try {
         const positions = await Tracker.find({});
         res.json(positions);
@@ -63,9 +72,12 @@ app.get('/api/positions', async (req, res) => {
     }
 });
 
-// --- NEW: MANUAL REGISTRATION ROUTE ---
-// Use this for your "Register" button
+// Manual Registration Route
 app.post('/api/register-station', async (req, res) => {
+    // Ensure DB is connected before saving
+    if (mongoose.connection.readyState !== 1) {
+        return res.status(503).json({ error: "Database not ready. Please try again in a moment." });
+    }
     try {
         const { callsign, lat, lng, details, symbol } = req.body;
         
@@ -81,12 +93,10 @@ app.post('/api/register-station', async (req, res) => {
         const newStation = await Tracker.findOneAndUpdate(
             { callsign: updateData.callsign }, 
             updateData, 
-            { upsert: true, new: true } // Upsert ensures it's saved permanently
+            { upsert: true, new: true }
         );
 
-        // Also trigger Pusher so it appears on the map instantly without refresh
         pusher.trigger("aprs-channel", "new-data", updateData);
-
         res.status(200).json({ message: "Station Registered!", data: newStation });
     } catch (err) {
         console.error("Registration Error:", err);
@@ -102,7 +112,7 @@ function connectAPRS() {
     client.connect(14580, "asia.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n");
         client.write("#filter p/DU/DW/DV/DY/DZ\n"); 
-        console.log("SUCCESS: Connected to APRS-IS. Bridging packets to Pusher & DB...");
+        console.log("SUCCESS: Connected to APRS-IS.");
     });
 }
 
@@ -120,6 +130,9 @@ client.on('close', () => {
 
 // --- 5. MAIN DATA PROCESSING ---
 client.on('data', async (data) => {
+    // Only process if DB is connected
+    if (mongoose.connection.readyState !== 1) return;
+
     const rawPacket = data.toString();
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -142,12 +155,7 @@ client.on('data', async (data) => {
         };
 
         try {
-            await Tracker.findOneAndUpdate(
-                { callsign: callsign }, 
-                updateData, 
-                { upsert: true }
-            );
-            // Trigger live Pusher event
+            await Tracker.findOneAndUpdate({ callsign: callsign }, updateData, { upsert: true });
             pusher.trigger("aprs-channel", "new-data", updateData);
         } catch (dbErr) {
             console.error("Failed to save to MongoDB:", dbErr);
@@ -155,5 +163,5 @@ client.on('data', async (data) => {
     }
 });
 
-const PORT = process.env.PORT || 8080; // Changed to 8080 for Railway compatibility
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => console.log(`Server Live on port ${PORT}`));
