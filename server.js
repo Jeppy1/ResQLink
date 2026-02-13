@@ -50,26 +50,25 @@ client.on('close', () => {
 client.on('data', (data) => {
     const rawPacket = data.toString();
     
-    /** * UPDATED REGEX:
-     * Captures Lat ($1,$2,$3), Table ID ($4), Lng ($5,$6,$7), and Symbol Code ($8)
-     */
-    const packetRegex = /([0-8]\d)([0-5]\d\.\d+)([NS])([\/\\])([0-1]\d\d)([0-5]\d\.\d+)([EW])(.)/;
-    const match = rawPacket.match(packetRegex);
+    // 1. Loose matches for Latitude and Longitude
+    // These find the coordinates anywhere in the packet, even if they aren't together.
+    const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
+    const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
+    
+    // 2. Separate match for the Symbol (Table ID + Symbol Code)
+    const symbolMatch = rawPacket.match(/([\/\\])(.)/);
 
-    if (match) {
-        // Calculate Decimal Degrees
-        const lat = (parseInt(match[1]) + parseFloat(match[2]) / 60) * (match[3] === 'S' ? -1 : 1);
-        const lng = (parseInt(match[5]) + parseFloat(match[6]) / 60) * (match[7] === 'W' ? -1 : 1);
+    if (latMatch && lngMatch) {
+        // Calculate decimal degrees
+        const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
+        const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         
-        // Extract Symbol Components
-        const tableId = match[4];   // Primary (/) or Alternate (\)
-        const symbolCode = match[8]; // Icon identifier (e.g., '>', '[')
-        const symbol = tableId + symbolCode; // e.g., "/>" for Car
+        // Use the found symbol or default to a standard car if not detected
+        const symbol = symbolMatch ? symbolMatch[1] + symbolMatch[2] : "/>"; 
 
         const callsign = rawPacket.split('>')[0];
         const comment = rawPacket.split(/[:!]/).pop() || "Active Tracker";
 
-        // Trigger event with the new 'symbol' property
         pusher.trigger("aprs-channel", "new-data", {
             callsign: callsign,
             lat: lat.toFixed(4),
