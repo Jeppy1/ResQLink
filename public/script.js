@@ -11,11 +11,16 @@ var trackPaths = {};
 var trackCoords = {};
 
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
+// Added /A, /W, //, and /
 const symbolNames = {
-    '/0': 'Home Station (Tactical 0)', // Added
-    '/1': 'Digital Station (Tactical 1)', // Added
+    '/A': 'Ambulance (Tactical A)',
+    '/W': 'Weather Station (Tactical W)',
+    '//': 'Red Dot / Emergency Point',
+    '/ ': 'Small Circle / Generic Station',
+    '/0': 'Home Station (Tactical 0)',
+    '/1': 'Digital Station (Tactical 1)',
     '/_': 'Weather Station',
-    '\\_': 'Weather Station (Alt)', // Added backslash variant
+    '\\_': 'Weather Station (Alt)',
     '/)': 'Fire Station',
     '/$': 'Phone Station',
     '/y': 'Yacht/Sailboat',
@@ -37,10 +42,14 @@ const symbolNames = {
 
 function getSymbolIcon(symbol) {
     const iconMapping = {
-        '/0': 'house.png',     // Map /0 to house
-        '/1': 'station.png',   // Map /1 to station
+        '/A': 'ambulance.png',
+        '/W': 'weather.png',
+        '//': 'default-pin.png', 
+        '/ ': 'default-pin.png', 
+        '/0': 'house.png',
+        '/1': 'station.png',
         '/_': 'weather.png',
-        '\\_': 'weather.png',  // Map alternate weather to icon
+        '\\_': 'weather.png',
         '/)': 'fire_station.png',
         '/<': 'motorcycle.png',
         '/>': 'car.png',
@@ -85,6 +94,41 @@ function trackCallsign() {
         markers[searchInput].openPopup();
     } else {
         alert("Callsign not found.");
+    }
+}
+
+// --- MANUAL REGISTRATION FUNCTION ---
+// Sends data to /api/register-station for MongoDB persistence
+async function registerStation() {
+    const callsign = document.getElementById('callSign').value.toUpperCase().trim();
+    if (!callsign) {
+        alert("Please enter a callsign first.");
+        return;
+    }
+
+    const data = {
+        callsign: callsign,
+        lat: 13.5857, 
+        lng: 124.2160,
+        symbol: '/-', 
+        details: "Manually Registered Station"
+    };
+
+    try {
+        const response = await fetch('/api/register-station', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (response.ok) {
+            alert(`Station ${callsign} registered successfully!`);
+        } else {
+            const err = await response.json();
+            alert("Error: " + err.error);
+        }
+    } catch (e) {
+        console.error("Registration failed:", e);
     }
 }
 
@@ -148,7 +192,8 @@ async function updateMapAndUI(data) {
     }
 
     // Auto-Follow
-    if (callsign === document.getElementById('callSign').value.toUpperCase().trim()) {
+    const currentSearch = document.getElementById('callSign').value.toUpperCase().trim();
+    if (callsign === currentSearch) {
         map.panTo(pos);
     }
 
@@ -165,11 +210,7 @@ window.onload = async () => {
         try {
             const response = await fetch('/api/positions');
             const history = await response.json();
-            
-            history.forEach(data => {
-                updateMapAndUI(data); 
-            });
-            
+            history.forEach(data => { updateMapAndUI(data); });
             console.log("SUCCESS: Loaded LKP data for " + history.length + " stations.");
         } catch (err) {
             console.error("Error loading historical data:", err);
