@@ -25,8 +25,12 @@
         <div class="control-group">
             <input type="text" id="callSign" placeholder="Enter Callsign (e.g. DY6YAI)" autocomplete="off">
             <div class="button-row">
-                <button onclick="trackCallsign()" class="btn-track"><i class="fa-solid fa-location-crosshairs"></i> Track</button>
-                <button onclick="registerAccount()" class="btn-reg">Register</button>
+                <button onclick="trackCallsign()" class="btn-track">
+                    <i class="fa-solid fa-location-crosshairs"></i> Track
+                </button>
+                <button onclick="registerStation()" class="btn-reg">
+                    <i class="fa-solid fa-id-card"></i> Register
+                </button>
             </div>
         </div>
 
@@ -47,6 +51,16 @@
             </div>
         </div>
 
+        <div class="legend-container">
+            <h4><i class="fa-solid fa-layer-group"></i> Icon Legend</h4>
+            <div class="legend-grid">
+                <span><img src="icons/house.png" width="16"> Home</span>
+                <span><img src="icons/station.png" width="16"> Digital</span>
+                <span><img src="icons/ambulance.png" width="16"> Medic</span>
+                <span><img src="icons/weather.png" width="16"> Weather</span>
+            </div>
+        </div>
+
         <div class="history-container">
             <h4><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h4>
             <table class="activity-table">
@@ -57,7 +71,7 @@
                     </tr>
                 </thead>
                 <tbody id="history-body">
-                    </tbody>
+                </tbody>
             </table>
         </div>
     </div>
