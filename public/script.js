@@ -12,6 +12,10 @@ var trackCoords = {};
 
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
 const symbolNames = {
+    '/0': 'Home Station (Tactical 0)', // Added
+    '/1': 'Digital Station (Tactical 1)', // Added
+    '/_': 'Weather Station',
+    '\\_': 'Weather Station (Alt)', // Added backslash variant
     '/)': 'Fire Station',
     '/$': 'Phone Station',
     '/y': 'Yacht/Sailboat',
@@ -23,7 +27,6 @@ const symbolNames = {
     '/a': 'Ambulance',
     '/f': 'Fire Truck',
     '/r': 'iGate Receiver',
-    '/_': 'Weather Station',
     '/v': 'Van',
     '/u': 'Truck',
     '/X': 'Helicopter',
@@ -34,6 +37,10 @@ const symbolNames = {
 
 function getSymbolIcon(symbol) {
     const iconMapping = {
+        '/0': 'house.png',     // Map /0 to house
+        '/1': 'station.png',   // Map /1 to station
+        '/_': 'weather.png',
+        '\\_': 'weather.png',  // Map alternate weather to icon
         '/)': 'fire_station.png',
         '/<': 'motorcycle.png',
         '/>': 'car.png',
@@ -42,7 +49,6 @@ function getSymbolIcon(symbol) {
         '/a': 'ambulance.png',
         '/f': 'fire_truck.png',
         '/r': 'igate.png',
-        '/_': 'weather.png',
         '/v': 'van.png',
         '/u': 'truck.png',
         '/X': 'helo.png'
@@ -91,11 +97,11 @@ async function updateMapAndUI(data) {
 
     if (isNaN(numLat) || isNaN(numLng)) return;
 
-    // --- NEW: Update Connection Status on First Data ---
+    // Update Connection Status
     const statusText = document.getElementById("status-text");
     const statusDot = document.getElementById("status-dot");
     if (statusText) statusText.innerText = "Connected to APRS-IS";
-    if (statusDot) statusDot.style.color = "#28a745"; // Success Green
+    if (statusDot) statusDot.style.color = "#28a745"; 
 
     const address = await getAddress(numLat, numLng);
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
@@ -153,15 +159,13 @@ async function updateMapAndUI(data) {
     if (historyBody.rows.length > 5) historyBody.deleteRow(5);
 }
 
-// Load historical data when the page opens
+// Load historical data
 window.onload = async () => {
-    // Wait for map to be ready
     if (map) {
         try {
             const response = await fetch('/api/positions');
             const history = await response.json();
             
-            // Loop through the array and plot the Last Known Positions
             history.forEach(data => {
                 updateMapAndUI(data); 
             });
