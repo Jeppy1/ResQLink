@@ -105,6 +105,17 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     }
 });
 
+// --- LOGOUT ROUTE ---
+app.get('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).json({ error: "Could not log out" });
+        }
+        res.clearCookie('connect.sid'); // Clears the session cookie
+        res.redirect('/'); // Redirects to the login page
+    });
+});
+
 // UPDATED REGISTRATION: Handles separated emergency fields
 app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
