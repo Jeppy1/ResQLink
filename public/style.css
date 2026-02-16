@@ -171,6 +171,20 @@ button:hover {
     margin-bottom: 0;
 }
 
+/* UPDATED: Spacing for Registration Buttons */
+.modal-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Added space so buttons are not touching */
+    margin-top: 25px;
+}
+
+.btn-cancel {
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+}
+
 /* --- TOOLTIP STYLES --- */
 .tooltip-container {
     position: relative;
@@ -208,6 +222,35 @@ button:hover {
     opacity: 1;
 }
 
+/* --- SIDE PANEL LEGEND STYLES --- */
+.legend-container h4 {
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #38bdf8;
+}
+
+.legend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #cbd5e1; /* Lighter text for better visibility */
+}
+
+/* Legend Icons */
+.legend-item i {
+    color: #38bdf8; /* High-contrast blue for legend icons */
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
+}
+
 /* --- LOGIN PAGE STYLES --- */
 .login-body {
     height: 100vh;
@@ -231,7 +274,7 @@ button:hover {
 }
 
 .login-logo {
-    width: 380px; /* Increased logo size */
+    width: 380px; 
     height: auto;
     margin-bottom: 35px;
     filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.3));
@@ -241,7 +284,7 @@ button:hover {
     position: relative;
     margin-bottom: 25px;
     display: flex;
-    align-items: center; /* Vertical alignment for icons */
+    align-items: center;
 }
 
 .input-group i:first-child {
@@ -252,7 +295,6 @@ button:hover {
     z-index: 5;
 }
 
-/* Eye icon at far right */
 #togglePassword {
     position: absolute;
     right: 18px;
@@ -270,7 +312,7 @@ button:hover {
 
 .input-group input {
     width: 100%;
-    padding: 14px 45px 14px 50px; /* Spacing for left and right icons */
+    padding: 14px 45px 14px 50px; 
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -296,7 +338,7 @@ button:hover {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: #ff4d4d; /* High-visibility red */
+    color: #ff4d4d;
     display: flex;
     justify-content: center;
     font-weight: bold;
