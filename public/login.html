@@ -44,15 +44,15 @@
             const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password }),
+                credentials: 'include' // CRITICAL: Tells browser to save the session cookie
             });
 
             if (res.ok) {
-                window.location.href = '/'; // Redirect to map
+                window.location.href = '/'; 
             } else {
-                alert("Invalid Credentials. Please check your username and password.");
+                alert("Invalid Credentials.");
             }
-        }
-    </script>
+}</script>
 </body>
 </html>
