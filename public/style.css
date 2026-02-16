@@ -1,10 +1,12 @@
+/* --- GLOBAL STYLES --- */
 body, html {
     margin: 0;
     padding: 0;
     height: 100%;
     width: 100%;
-    font-family: Arial, sans-serif;
+    font-family: 'Inter', Arial, sans-serif;
     overflow: hidden;
+    background-color: #0f172a;
 }
 
 .container {
@@ -15,157 +17,62 @@ body, html {
 
 #map {
     flex: 1;
-    height: 100vh; /* Changed from 100% to 100vh to ensure visibility */
-    background-color: #eee; /* Light grey so you can see if the div exists */
+    height: 100vh;
+    z-index: 1;
 }
 
+/* --- SIDE PANEL STYLES --- */
 .side-panel {
-    width: 300px;
-    background: #f8f9fa;
-    padding: 25px;
-    box-shadow: -2px 0 15px rgba(0,0,0,0.2);
+    width: 320px;
+    background: #1e293b; /* Darker theme for consistency */
+    padding: 20px;
+    box-shadow: -2px 0 15px rgba(0,0,0,0.5);
     display: flex;
     flex-direction: column;
     z-index: 1000;
+    color: white;
+    overflow-y: auto;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
 .logo {
-    max-width: 100%;
+    max-width: 180px;
     height: auto;
-    margin-bottom: 30px;
 }
 
+/* --- FORM & INPUT STYLES --- */
 input {
     width: 100%;
     padding: 12px;
-    margin-bottom: 15px;
-    border: 2px solid #ddd;
+    margin-bottom: 10px;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     box-sizing: border-box;
+    color: white;
+}
+
+input:focus {
+    border-color: #38bdf8;
+    outline: none;
+}
+
+.button-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
 }
 
 button {
     width: 100%;
     padding: 10px;
-    margin-bottom: 10px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.status-box {
-    margin-top: 10px;
-    font-size: 14px;
-    font-weight: bold;
-}
-
-#status-dot {
-    color: red;
-    margin-right: 5px;
-}
-
-.history-container {
-    margin-top: 20px;
-    width: 100%;
-}
-
-#history-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-#history-table th, #history-table td {
-    padding: 8px;
-    border-bottom: 1px solid #ddd;
-    text-align: left;
-}
-
-#history-table tr:first-child {
-    background-color: #e8f4fd; /* Highlight the newest entry */
-}
-
-/* Login Page Styles */
-.login-body {
-    margin: 0;
-    padding: 0;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    font-family: 'Inter', sans-serif;
-    color: white;
-}
-
-.login-card {
-    background: rgba(30, 41, 59, 0.7);
-    backdrop-filter: blur(10px);
-    padding: 40px;
-    border-radius: 16px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-}
-
-.login-logo {
-    width: 80px;
-    margin-bottom: 15px;
-}
-
-.login-header h1 {
-    margin: 0;
-    font-size: 28px;
-    letter-spacing: 1px;
-    color: #38bdf8;
-}
-
-.login-header p {
-    font-size: 14px;
-    opacity: 0.7;
-    margin-top: 5px;
-}
-
-.login-form {
-    margin-top: 30px;
-}
-
-.input-group {
-    position: relative;
-    margin-bottom: 20px;
-}
-
-.input-group i {
-    position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #38bdf8;
-}
-
-.input-group input {
-    width: 100%;
-    padding: 12px 15px 12px 45px;
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    color: white;
-    outline: none;
-    box-sizing: border-box;
-}
-
-.input-group input:focus {
-    border-color: #38bdf8;
-}
-
-.btn-login {
-    width: 100%;
-    padding: 12px;
-    background: #0284c7;
+    background-color: #0284c7;
     color: white;
     border: none;
     border-radius: 8px;
@@ -174,24 +81,117 @@ button {
     transition: 0.3s;
 }
 
-.btn-login:hover {
-    background: #0ea5e9;
-    box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+button:hover {
+    background-color: #0ea5e9;
 }
 
-.login-footer {
+/* --- STATUS & INFO BOXES --- */
+.status-box {
+    padding: 10px;
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 13px;
+}
+
+#status-dot {
+    color: #ef4444; /* Default Red */
+    margin-right: 5px;
+}
+
+#tracking-info {
+    display: none;
+    background: rgba(56, 189, 248, 0.1);
+    border-left: 4px solid #38bdf8;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.info-content p {
+    margin: 8px 0;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+/* --- REGISTRATION MODAL (CENTERED) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal-card {
+    background: #1e293b;
+    width: 90%;
+    max-width: 420px;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.btn-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 24px;
+    cursor: pointer;
+    width: auto;
+}
+
+.input-field {
+    position: relative;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.input-field i:not(.tooltip-icon) {
+    position: absolute;
+    left: 15px;
+    color: #38bdf8;
+}
+
+.input-field input {
+    padding-left: 45px !important;
+    margin-bottom: 0;
+}
+
+.modal-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     margin-top: 25px;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: #ef4444; /* Emergency Red */
 }
 
-/* Tooltip Container */
+.btn-cancel {
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+}
+
+/* --- TOOLTIP STYLES --- */
 .tooltip-container {
     position: relative;
     display: inline-block;
-    margin-left: 8px;
+    margin-left: 10px;
     cursor: help;
 }
 
@@ -200,29 +200,66 @@ button {
     font-size: 14px;
 }
 
-/* Tooltip Text (The Bubble) */
 .tooltip-text {
     visibility: hidden;
-    width: 200px;
+    width: 180px;
     background-color: #0f172a;
     color: #fff;
     text-align: center;
     border-radius: 6px;
     padding: 8px;
     position: absolute;
-    z-index: 999;
-    bottom: 125%; /* Position above the icon */
+    z-index: 9999;
+    bottom: 125%;
     left: 50%;
     transform: translateX(-50%);
     opacity: 0;
     transition: opacity 0.3s;
-    font-size: 12px;
+    font-size: 11px;
     border: 1px solid #38bdf8;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
 }
 
-/* Show tooltip on hover */
 .tooltip-container:hover .tooltip-text {
     visibility: visible;
     opacity: 1;
+}
+
+/* --- ACTIVITY TABLE --- */
+.activity-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 10px;
+}
+
+.activity-table th {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    color: #38bdf8;
+}
+
+.activity-table td {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* --- LOGIN PAGE STYLES --- */
+.login-body {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.btn-logout {
+    width: auto;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 18px;
+}
+
+.btn-logout:hover {
+    color: #ef4444;
 }
