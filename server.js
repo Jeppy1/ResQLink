@@ -13,16 +13,23 @@ const server = http.createServer(app);
 app.use(express.json()); 
 
 // --- 1. SESSION & AUTHENTICATION ---
+// Added trust proxy for Railway/Vercel
+app.set('trust proxy', 1); 
+
 app.use(session({
     secret: 'resqlink-secure-key-2026',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false } 
+    saveUninitialized: false, // Prevents creating empty sessions
+    cookie: { 
+        secure: true,        // Required for cross-site cookies
+        sameSite: 'none',    // Essential for Vercel to talk to Railway
+        maxAge: 1000 * 60 * 60 * 24 // Valid for 24 hours
+    }
 }));
 
 function isAuthenticated(req, res, next) {
     if (req.session.user) return next();
-    res.redirect('/login.html');
+    res.status(401).json({ error: "Unauthorized" }); // Return error for API calls
 }
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -41,14 +48,13 @@ async function connectToDatabase() {
 }
 connectToDatabase();
 
-// UPDATED SCHEMA: Added isRegistered flag
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
     lat: String,
     lng: String,
     symbol: String,
     details: String,
-    isRegistered: { type: Boolean, default: false }, // Filter Flag
+    isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 }, { bufferCommands: false });
 
@@ -65,32 +71,39 @@ const pusher = new Pusher({
 
 // --- 4. API ENDPOINTS ---
 
-app.get('/', isAuthenticated, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Root route redirects to login if not authenticated
+app.get('/', (req, res) => {
+    if (req.session.user) {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    } else {
+        res.sendFile(path.join(__dirname, 'public', 'login.html'));
+    }
 });
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     if (username === 'admin' && password === 'resqlink2026') {
         req.session.user = username;
-        return res.json({ success: true });
+        // Explicitly save session before responding
+        req.session.save((err) => {
+            if (err) return res.status(500).json({ error: "Session save failed" });
+            return res.json({ success: true });
+        });
+    } else {
+        res.status(401).json({ error: "Invalid Credentials" });
     }
-    res.status(401).json({ error: "Invalid Credentials" });
 });
 
-// UPDATED API: Only fetches registered trackers
-app.get('/api/positions', async (req, res) => {
-    if (!req.session.user) return res.status(401).json({ error: "Unauthorized" });
+app.get('/api/positions', isAuthenticated, async (req, res) => {
     try {
-        const positions = await Tracker.find({ isRegistered: true }); // THE FILTER
+        const positions = await Tracker.find({ isRegistered: true });
         res.json(positions);
     } catch (err) {
         res.status(500).send(err);
     }
 });
 
-// UPDATED REGISTRATION: Sets isRegistered to true
-app.post('/api/register-station', async (req, res) => {
+app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { callsign, lat, lng, details, symbol } = req.body;
         const updateData = {
@@ -99,7 +112,7 @@ app.post('/api/register-station', async (req, res) => {
             lng: lng.toString(),
             symbol: symbol || "/-",
             details: details || "Manually Registered",
-            isRegistered: true, // Mark as authorized
+            isRegistered: true,
             lastSeen: new Date()
         };
 
@@ -138,7 +151,6 @@ client.on('data', async (data) => {
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
 
-        // CHECK IF ALREADY REGISTERED: Only update if isRegistered is true
         const existing = await Tracker.findOne({ callsign: callsign });
         
         if (existing && existing.isRegistered) {
