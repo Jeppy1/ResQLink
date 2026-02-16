@@ -1,3 +1,6 @@
+// --- 0. INITIALIZATION ---
+require('dotenv').config(); // MUST be the first line to load variables
+
 const express = require('express');
 const http = require('http');
 const net = require('net');
@@ -15,7 +18,7 @@ app.use(express.json());
 app.set('trust proxy', 1); 
 
 app.use(session({
-    secret: 'resqlink-secure-key-2026',
+    secret: process.env.SESSION_SECRET || 'resqlink-secure-key-2026', // Use env variable
     resave: false,
     saveUninitialized: false, 
     cookie: { 
@@ -26,9 +29,14 @@ app.use(session({
 }));
 
 // --- 2. MONGODB CONFIGURATION ---
-const mongoURI = process.env.MONGODB_URL || "mongodb://mongo:qEtCfZOBIfeEtLRNyxWBhGnLDZFlUkGf@tramway.proxy.rlwy.net:41316/resqlink?authSource=admin";
+// Removed hardcoded URL to prevent GitHub leaks
+const mongoURI = process.env.MONGODB_URL; 
 
 async function connectToDatabase() {
+    if (!mongoURI) {
+        console.error("FATAL ERROR: MONGODB_URL is not defined in environment variables.");
+        return;
+    }
     try {
         await mongoose.connect(mongoURI, { serverSelectionTimeoutMS: 5000, bufferCommands: false });
         console.log("SUCCESS: Connected to MongoDB Database");
@@ -75,19 +83,19 @@ app.get('/', (req, res) => {
     }
 });
 
-// Authentication Middleware for API endpoints
 function isAuthenticated(req, res, next) {
     if (req.session.user) return next();
     res.status(401).json({ error: "Unauthorized" }); 
 }
 
-// Serve other static assets (CSS, JS, Images)
+// Serve other static assets ONLY if they pass the logic above
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    // For production, consider moving these credentials to .env as well
     if (username === 'admin' && password === 'resqlink2026') {
         req.session.user = username;
         req.session.save((err) => {
