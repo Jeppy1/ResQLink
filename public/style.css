@@ -24,7 +24,7 @@ body, html {
 /* --- SIDE PANEL STYLES --- */
 .side-panel {
     width: 320px;
-    background: #1e293b; /* Darker theme for consistency */
+    background: #1e293b;
     padding: 20px;
     box-shadow: -2px 0 15px rgba(0,0,0,0.5);
     display: flex;
@@ -95,7 +95,7 @@ button:hover {
 }
 
 #status-dot {
-    color: #ef4444; /* Default Red */
+    color: #ef4444;
     margin-right: 5px;
 }
 
@@ -114,7 +114,7 @@ button:hover {
     line-height: 1.4;
 }
 
-/* --- REGISTRATION MODAL (CENTERED) --- */
+/* --- REGISTRATION MODAL (CENTERED ROUNDED RECTANGLE) --- */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -134,7 +134,7 @@ button:hover {
     width: 90%;
     max-width: 420px;
     padding: 30px;
-    border-radius: 20px;
+    border-radius: 20px; /* Rounded corners for the rectangle shape */
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: white;
@@ -166,7 +166,8 @@ button:hover {
 .input-field i:not(.tooltip-icon) {
     position: absolute;
     left: 15px;
-    color: #38bdf8;
+    color: #38bdf8; /* Lighter blue for visibility */
+    font-size: 16px;
 }
 
 .input-field input {
@@ -251,6 +252,45 @@ button:hover {
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+}
+
+.login-card {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.login-logo {
+    width: 120px;
+    margin-bottom: 25px;
+}
+
+/* Lightened icons for visibility against dark backgrounds */
+.input-group i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #38bdf8; /* Replaced black with light blue */
+    font-size: 18px;
+    z-index: 2;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    outline: none;
+    box-sizing: border-box;
 }
 
 .btn-logout {
