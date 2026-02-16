@@ -11,7 +11,6 @@ var trackPaths = {};
 var trackCoords = {};
 
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
-// Added /A, /W, //, and /
 const symbolNames = {
     '/A': 'Ambulance (Tactical A)',
     '/W': 'Weather Station (Tactical W)',
@@ -97,8 +96,12 @@ function trackCallsign() {
     }
 }
 
+// --- NEW: LOGOUT FUNCTION ---
+function handleLogout() {
+    window.location.href = '/api/logout';
+}
+
 // --- MANUAL REGISTRATION FUNCTION ---
-// Sends data to /api/register-station for MongoDB persistence
 async function registerStation() {
     const callsign = document.getElementById('callSign').value.toUpperCase().trim();
     if (!callsign) {
@@ -123,6 +126,8 @@ async function registerStation() {
 
         if (response.ok) {
             alert(`Station ${callsign} registered successfully!`);
+        } else if (response.status === 401) {
+            window.location.href = '/login.html'; // Redirect if session expired
         } else {
             const err = await response.json();
             alert("Error: " + err.error);
@@ -209,6 +214,12 @@ window.onload = async () => {
     if (map) {
         try {
             const response = await fetch('/api/positions');
+            
+            if (response.status === 401) {
+                window.location.href = '/login.html'; // Redirect unauthorized users
+                return;
+            }
+
             const history = await response.json();
             history.forEach(data => { updateMapAndUI(data); });
             console.log("SUCCESS: Loaded LKP data for " + history.length + " stations.");
