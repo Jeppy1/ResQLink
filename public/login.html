@@ -7,35 +7,31 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
-<body class="login-body">
-    <div class="login-card">
-        <div class="login-header">
-            <img src="Logo.png" alt="ResQLink Logo" class="login-logo">
-            <h1>ResQLink</h1>
-            <p>Disaster Risk Reduction Tracking System</p>
-        </div>
-
-        <div class="login-form">
-            <div class="input-group">
-                <i class="fa-solid fa-user"></i>
-                <input type="text" id="username" placeholder="Personnel Username" autocomplete="off">
-            </div>
-            
-            <div class="input-group">
-                <i class="fa-solid fa-lock"></i>
-                <input type="password" id="password" placeholder="Access Password">
-            </div>
-
-            <button onclick="handleLogin()" class="btn-login">
-                <i class="fa-solid fa-right-to-bracket"></i> Enter Dashboard
-            </button>
-        </div>
-        
-        <div class="login-footer">
-            <span>Authorized Personnel Only</span>
-        </div>
+<body class="login-body"><div class="login-card">
+    <div class="login-header">
+        <img src="Logo.png" alt="ResQLink Logo" class="login-logo">
     </div>
 
+    <div class="login-form">
+        <div class="input-group">
+            <i class="fa-solid fa-user"></i>
+            <input type="text" id="username" placeholder="Personnel Username" autocomplete="off">
+        </div>
+        
+        <div class="input-group">
+            <i class="fa-solid fa-lock"></i>
+            <input type="password" id="password" placeholder="Access Password">
+        </div>
+
+        <button onclick="handleLogin()" class="btn-login">
+            <i class="fa-solid fa-right-to-bracket"></i> Enter Dashboard
+        </button>
+    </div>
+    
+    <div class="login-footer">
+        <span>Authorized Personnel Only</span>
+    </div>
+</div>
     <script>
         async function handleLogin() {
             const username = document.getElementById('username').value;
