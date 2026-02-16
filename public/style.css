@@ -186,3 +186,43 @@ button {
     letter-spacing: 2px;
     color: #ef4444; /* Emergency Red */
 }
+
+/* Tooltip Container */
+.tooltip-container {
+    position: relative;
+    display: inline-block;
+    margin-left: 8px;
+    cursor: help;
+}
+
+.tooltip-icon {
+    color: #38bdf8;
+    font-size: 14px;
+}
+
+/* Tooltip Text (The Bubble) */
+.tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: #0f172a;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 8px;
+    position: absolute;
+    z-index: 999;
+    bottom: 125%; /* Position above the icon */
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 12px;
+    border: 1px solid #38bdf8;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+/* Show tooltip on hover */
+.tooltip-container:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
