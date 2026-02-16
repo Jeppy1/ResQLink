@@ -9,7 +9,6 @@ const session = require('express-session');
 const app = express();
 const server = http.createServer(app);
 
-// Middleware
 app.use(express.json()); 
 
 // --- 1. SESSION & AUTHENTICATION ---
@@ -26,13 +25,6 @@ app.use(session({
     }
 }));
 
-function isAuthenticated(req, res, next) {
-    if (req.session.user) return next();
-    res.status(401).json({ error: "Unauthorized" }); 
-}
-
-app.use(express.static(path.join(__dirname, 'public')));
-
 // --- 2. MONGODB CONFIGURATION ---
 const mongoURI = process.env.MONGODB_URL || "mongodb://mongo:qEtCfZOBIfeEtLRNyxWBhGnLDZFlUkGf@tramway.proxy.rlwy.net:41316/resqlink?authSource=admin";
 
@@ -47,7 +39,6 @@ async function connectToDatabase() {
 }
 connectToDatabase();
 
-// UPDATED SCHEMA: Separated Emergency Name and Number
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
     lat: String,
@@ -56,8 +47,8 @@ const trackerSchema = new mongoose.Schema({
     details: String,
     ownerName: String,
     contactNum: String,
-    emergencyName: String, // NEW
-    emergencyNum: String,  // NEW
+    emergencyName: String, 
+    emergencyNum: String,  
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 }, { bufferCommands: false });
@@ -73,15 +64,27 @@ const pusher = new Pusher({
     useTLS: true
 });
 
-// --- 4. API ENDPOINTS ---
+// --- 4. SECURE ROUTING LOGIC ---
 
+// Root Route: Explicitly decide which page to serve before static middleware
 app.get('/', (req, res) => {
-    if (req.session.user) {
+    if (req.session && req.session.user) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
     } else {
         res.sendFile(path.join(__dirname, 'public', 'login.html'));
     }
 });
+
+// Authentication Middleware for API endpoints
+function isAuthenticated(req, res, next) {
+    if (req.session.user) return next();
+    res.status(401).json({ error: "Unauthorized" }); 
+}
+
+// Serve other static assets (CSS, JS, Images)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- API ENDPOINTS ---
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
@@ -96,6 +99,14 @@ app.post('/api/login', (req, res) => {
     }
 });
 
+app.get('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) return res.status(500).json({ error: "Could not log out" });
+        res.clearCookie('connect.sid'); 
+        res.redirect('/'); 
+    });
+});
+
 app.get('/api/positions', isAuthenticated, async (req, res) => {
     try {
         const positions = await Tracker.find({ isRegistered: true });
@@ -105,18 +116,6 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     }
 });
 
-// --- LOGOUT ROUTE ---
-app.get('/api/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).json({ error: "Could not log out" });
-        }
-        res.clearCookie('connect.sid'); // Clears the session cookie
-        res.redirect('/'); // Redirects to the login page
-    });
-});
-
-// UPDATED REGISTRATION: Handles separated emergency fields
 app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { 
@@ -132,8 +131,8 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             details: details || "Registered Responder",
             ownerName,
             contactNum,
-            emergencyName, //
-            emergencyNum,  //
+            emergencyName,
+            emergencyNum,
             isRegistered: true,
             lastSeen: new Date()
         };
@@ -190,8 +189,8 @@ client.on('data', async (data) => {
                 callsign,
                 ownerName: existing.ownerName,
                 contactNum: existing.contactNum,
-                emergencyName: existing.emergencyName, //
-                emergencyNum: existing.emergencyNum    //
+                emergencyName: existing.emergencyName,
+                emergencyNum: existing.emergencyNum
             });
         }
     }
