@@ -1,6 +1,58 @@
-<div class="login-container">
-    <h2><img src="Logo.png" width="50"> ResQLink Login</h2>
-    <input type="text" id="user" placeholder="Username">
-    <input type="password" id="pass" placeholder="Password">
-    <button onclick="handleLogin()">Enter Dashboard</button>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResQLink | Authorized Access</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-header">
+            <img src="Logo.png" alt="ResQLink Logo" class="login-logo">
+            <h1>ResQLink</h1>
+            <p>Disaster Risk Reduction Tracking System</p>
+        </div>
+
+        <div class="login-form">
+            <div class="input-group">
+                <i class="fa-solid fa-user"></i>
+                <input type="text" id="username" placeholder="Personnel Username" autocomplete="off">
+            </div>
+            
+            <div class="input-group">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" id="password" placeholder="Access Password">
+            </div>
+
+            <button onclick="handleLogin()" class="btn-login">
+                <i class="fa-solid fa-right-to-bracket"></i> Enter Dashboard
+            </button>
+        </div>
+        
+        <div class="login-footer">
+            <span>Authorized Personnel Only</span>
+        </div>
+    </div>
+
+    <script>
+        async function handleLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (res.ok) {
+                window.location.href = '/'; // Redirect to map
+            } else {
+                alert("Invalid Credentials. Please check your username and password.");
+            }
+        }
+    </script>
+</body>
+</html>
