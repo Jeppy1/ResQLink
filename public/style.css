@@ -231,7 +231,7 @@ button:hover {
 }
 
 .login-logo {
-    width: 300px; /* Increased logo size */
+    width: 380px; /* Increased logo size */
     height: auto;
     margin-bottom: 35px;
     filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.3));
