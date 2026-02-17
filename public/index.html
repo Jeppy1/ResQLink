@@ -14,54 +14,77 @@
 <div class="container">
     <div id="map"></div>
 
-<div id="regModal" class="modal-overlay" style="display:none;">
-    <div class="modal-card">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-id-card"></i> Personnel Registration</h3>
-            <button onclick="closeModal()" class="btn-close">&times;</button>
-        </div>
-        <div class="modal-body">
-            <p>Registering Callsign: <strong id="modalCallsignDisplay">---</strong></p>
-            
-            <div class="input-field">
-                <i class="fa-solid fa-user"></i>
-                <input type="text" id="ownerName" placeholder="Name of Owner/Responder">
+    <div id="regModal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-id-card"></i> Personnel Registration</h3>
+                <button onclick="closeModal()" class="btn-close">&times;</button>
             </div>
-            
-            <div class="input-field">
-                <i class="fa-solid fa-phone"></i>
-                <input type="text" id="contactNum" placeholder="Contact Number" 
-                       oninput="this.value = this.value.replace(/[^0-9]/g, '');">
-            </div>
-            
-            <div class="input-field">
-                <i class="fa-solid fa-hospital-user"></i>
-                <input type="text" id="emergencyName" placeholder="Emergency Contact Name">
-                <div class="tooltip-container">
-                    <i class="fa-solid fa-circle-question tooltip-icon"></i>
-                    <span class="tooltip-text">Person to contact in case of emergency</span>
+            <div class="modal-body">
+                <p>Registering Callsign: <strong id="modalCallsignDisplay">---</strong></p>
+                
+                <div class="input-field">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="ownerName" placeholder="Name of Owner/Responder">
                 </div>
-            </div>
+                
+                <div class="input-field">
+                    <i class="fa-solid fa-phone"></i>
+                    <input type="text" id="contactNum" placeholder="Contact Number" 
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                </div>
+                
+                <div class="input-field">
+                    <i class="fa-solid fa-hospital-user"></i>
+                    <input type="text" id="emergencyName" placeholder="Emergency Contact Name">
+                </div>
 
-            <div class="input-field">
-                <i class="fa-solid fa-phone-flip"></i>
-                <input type="text" id="emergencyNum" placeholder="Emergency Contact Number"
-                       oninput="this.value = this.value.replace(/[^0-9]/g, '');">
-            </div>
+                <div class="input-field">
+                    <i class="fa-solid fa-phone-flip"></i>
+                    <input type="text" id="emergencyNum" placeholder="Emergency Contact Number"
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                </div>
 
-            <div class="modal-footer">
-                <button onclick="submitRegistration()" class="btn-confirm">Save Tracker</button>
-                <button onclick="closeModal()" class="btn-cancel">Cancel</button>
+                <div class="modal-footer">
+                    <button onclick="submitRegistration()" class="btn-confirm">Save Tracker</button>
+                    <button onclick="closeModal()" class="btn-cancel">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
+
+    <div id="confirmModal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-header" style="background: #ef4444;">
+                <h3><i class="fa-solid fa-triangle-exclamation"></i> Clear Pathing</h3>
+                <button onclick="closeConfirmModal()" class="btn-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Are you sure you want to clear the history for this tracker?</p>
+                <div class="modal-footer">
+                    <button onclick="executeClear()" class="btn-confirm" style="background: #ef4444;">Clear Now</button>
+                    <button onclick="closeConfirmModal()" class="btn-cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="successModal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-body" style="text-align: center; padding: 30px;">
+                <i class="fa-solid fa-circle-check" style="font-size: 50px; color: #22c55e; margin-bottom: 15px;"></i>
+                <h3 id="successTitle">Success!</h3>
+                <p id="successMessage">Operation completed.</p>
+                <button onclick="closeSuccessModal()" class="btn-confirm" style="width: 100%; margin-top: 20px;">OK</button>
+            </div>
+        </div>
+    </div>
 
     <div class="side-panel">
         <div class="header-row">
             <img src="Logo.png" class="logo" alt="ResQLink Logo">
             <button onclick="handleLogout()" class="btn-logout" title="Logout">
-                <i class="fa-solid fa-right-from-bracket"></i>Logout
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
             </button>
         </div>
         
@@ -87,13 +110,10 @@
             <div class="info-content">
                 <p><strong><i class="fa-solid fa-map-location-dot"></i> Location:</strong><br>
                 <span id="info-address">Detecting Barangay...</span></p>
-                
                 <p><strong><i class="fa-solid fa-earth-asia"></i> Coordinates:</strong><br>
                 <span id="info-lat">---</span>, <span id="info-lng">---</span></p>
-                
                 <p><strong><i class="fa-solid fa-calendar-day"></i> Date & Time:</strong><br>
                 <span id="info-date">---</span></p>
-                
                 <p><strong><i class="fa-solid fa-comment-dots"></i> Message:</strong><br>
                 <i id="info-msg">Waiting for packets...</i></p>
             </div>
@@ -118,8 +138,7 @@
                         <th>Received</th>
                     </tr>
                 </thead>
-                <tbody id="history-body">
-                </tbody>
+                <tbody id="history-body"></tbody>
             </table>
         </div>
     </div>
