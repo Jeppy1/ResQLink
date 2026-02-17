@@ -114,12 +114,33 @@ async function updateMapAndUI(data) {
     const time = new Date().toLocaleTimeString();
     updateRecentActivity(callsign, time);
 
-    const popupContent = `<div style="min-width: 220px;">
-        <h4 style="margin:0; color:#007bff;">${callsign}</h4>
-        <p style="font-size:13px;"><b>Owner:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}</p>
-        <p style="font-size:12px; color:#d9534f;"><b>📍 ${addr}</b></p>
-        <button onclick="openConfirmModal('${callsign}')" style="width:100%; background:#ef4444; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">Clear Path</button>
-    </div>`;
+    // --- RESTORED POPUP WITH ALL DETAILS ---
+    const popupContent = `
+        <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
+            <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
+            
+            <div style="font-size: 13px; margin-bottom: 8px;">
+                <b><i class="fa-solid fa-user"></i> Owner:</b> ${ownerName || 'N/A'}<br>
+                <b><i class="fa-solid fa-phone"></i> Contact:</b> ${contactNum || 'N/A'}<br>
+                <b><i class="fa-solid fa-hospital-user"></i> Emergency:</b> ${emergencyName || 'N/A'}<br>
+                <b><i class="fa-solid fa-phone-flip"></i> Emergency #:</b> ${emergencyNum || 'N/A'}
+            </div>
+    
+            <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">
+                <i class="fa-solid fa-location-dot"></i> ${address}
+            </div>
+    
+            <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
+                <b>Type:</b> ${typeName}<br>
+                <b>🕒 Last Seen:</b> ${timeStr}
+            </div>
+    
+            <button onclick="openConfirmModal('${callsign}')" 
+                    style="width: 100%; background: #ef4444; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;">
+                <i class="fa-solid fa-eraser"></i> Clear Path
+            </button>
+        </div>
+    `;
 
     if (markers[callsign]) markers[callsign].setLatLng(pos).setIcon(getSymbolIcon(symbol)).setPopupContent(popupContent);
     else markers[callsign] = L.marker(pos, { icon: getSymbolIcon(symbol) }).addTo(map).bindPopup(popupContent);
