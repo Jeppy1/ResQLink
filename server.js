@@ -52,13 +52,11 @@ const pusher = new Pusher({
 
 // --- 4. SECURE ROUTING & ROLE MIDDLEWARE ---
 
-// Basic Auth: Check if user is logged in at all
 function isAuthenticated(req, res, next) {
     if (req.session.user) return next();
     res.status(401).json({ error: "Unauthorized" }); 
 }
 
-// Admin Auth: Specifically check if the role is 'admin'
 function isAdmin(req, res, next) {
     if (req.session.user && req.session.role === 'admin') return next();
     res.status(403).json({ error: "Access Denied: Admin privileges required." });
@@ -87,17 +85,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
 
-// Updated Login with multi-user support
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    
-    // Check for Admin Role
     if (username === 'admin' && password === 'resqlink2026') {
         req.session.user = username;
         req.session.role = 'admin';
         req.session.save(() => res.json({ success: true, role: 'admin' }));
     } 
-    // Check for Staff/Viewer Role
     else if (username === 'staff' && password === 'staff2026') {
         req.session.user = username;
         req.session.role = 'viewer';
@@ -106,6 +100,17 @@ app.post('/api/login', (req, res) => {
     else {
         res.status(401).json({ error: "Invalid Credentials" });
     }
+});
+
+// FIXED LOGOUT ROUTE
+app.get('/api/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).json({ error: "Could not log out" });
+        }
+        res.clearCookie('connect.sid'); // Clears the session cookie
+        res.redirect('/'); // Redirects to handle re-authentication
+    });
 });
 
 app.get('/api/positions', isAuthenticated, async (req, res) => {
@@ -141,7 +146,6 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// SECURE DELETE: Only Admin can access this
 app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
     try {
         const callsign = req.params.callsign.toUpperCase().trim();
