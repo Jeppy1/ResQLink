@@ -75,22 +75,18 @@ channel.bind('connection-status', (data) => {
     }
 });
 
-// UPDATED: Now maintains only ONE LATEST row per callsign
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
 
-    // Check if a row for this callsign already exists
     let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
 
     if (existingRow) {
-        // Update existing row and move it to the top
         existingRow.cells[1].innerHTML = `<span style="color: #666; font-size: 11px;">${lat}</span>`;
         existingRow.cells[2].innerHTML = `<span style="color: #666; font-size: 11px;">${lng}</span>`;
         existingRow.cells[3].innerText = time;
         tbody.prepend(existingRow);
     } else {
-        // Insert new row if callsign is first seen
         const row = tbody.insertRow(0);
         row.innerHTML = `
             <td>${callsign}</td>
@@ -119,9 +115,19 @@ function trackCallsign() {
 }
 
 function handleLogout() { window.location.href = '/api/logout'; }
+
+// UPDATED: Registration Guard to prevent duplicates
 function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
     if (!cs) return alert("Enter callsign.");
+
+    // Check if the marker exists and is already marked as registered
+    const existingMarker = markers[cs];
+    if (existingMarker && existingMarker.isRegistered) {
+        showSuccess("Already Registered", `${cs} is already in the ResQLink database.`);
+        return; 
+    }
+
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
 }
@@ -157,11 +163,10 @@ async function submitRegistration() {
 
 // 7. Persistent UI Logic
 async function updateMapAndUI(data) {
-    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen } = data;
+    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
-    // Load pathing from DB
     trackCoords[callsign] = path || [];
     if (trackPaths[callsign]) {
         trackPaths[callsign].setLatLngs(trackCoords[callsign]);
@@ -172,7 +177,6 @@ async function updateMapAndUI(data) {
     const currentAddr = await getAddress(pos[0], pos[1]);
     const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : new Date().toLocaleTimeString();
     
-    // Updates the UNIQUE row in side panel
     updateRecentActivity(callsign, lat, lng, timeStr);
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
@@ -203,19 +207,19 @@ async function updateMapAndUI(data) {
 
     if (markers[callsign]) {
         markers[callsign].setLatLng(pos).setIcon(customIcon).setPopupContent(popupContent);
+        markers[callsign].isRegistered = isRegistered; // Save status
     } else {
         markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
+        markers[callsign].isRegistered = isRegistered; // Save status
     }
 }
 
-// UPDATED: Robust database state restoration
 window.onload = async () => {
     try {
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
         if (Array.isArray(history)) {
-            // Sort by time (oldest first) so prepend logic keeps latest on top
             history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
             history.forEach(d => updateMapAndUI(d));
         }
