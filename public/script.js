@@ -152,7 +152,7 @@ async function submitRegistration() {
         if (response.ok) {
             closeModal();
             // Show custom success modal instead of alert
-            showSuccess("Registration Successful", `${callsign} is now registered in both databases.`);
+            showSuccess("Registration Successful", `${callsign} is now registered.`);
             setTimeout(() => { location.reload(); }, 2000); 
         } else {
             const err = await response.json();
