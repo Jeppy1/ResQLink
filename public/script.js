@@ -13,9 +13,9 @@ var trackCoords = {};
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
 // --- 3. UPDATED SYMBOL MAPPING ---
 const symbolNames = {
-    '/[': 'Human/Personnel',
+    '/[': 'Digital Station',
     '/r': 'House/HQ',
-    '/1': 'Digital Station',
+    '/1': 'Human/Personnel',
     '/>': 'Vehicle/Car',
     '/-': 'iGate',
     '/A': 'Ambulance',
@@ -26,9 +26,9 @@ const symbolNames = {
 
 function getSymbolIcon(symbol) {
     const iconMapping = {
-        '/[': 'human.png',      // Correct code for Human
+        '/[': 'station.png',      // Correct code for Human
         '/r': 'house.png',      // Correct code for iGate
-        '/1': 'station.png',    // Digital/Tactical 1
+        '/1': 'human.png',    // Digital/Tactical 1
         '/>': 'car.png',
         '/-': 'igate.png',
         '/a': 'ambulance.png',
