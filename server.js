@@ -168,11 +168,14 @@ function connectAPRS() {
 }
 connectAPRS();
 
+// --- 5. APRS-IS & DATA PROCESSING ---
 client.on('data', async (data) => {
     if (mongoose.connection.readyState !== 1) return;
     const rawPacket = data.toString();
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
+    
+    // Improved Regex: Specifically captures the 2-character APRS symbol
     const symbolMatch = rawPacket.match(/([\/\\])(.)/);
 
     if (latMatch && lngMatch) {
@@ -180,13 +183,17 @@ client.on('data', async (data) => {
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
 
+        // Capture both the Table ID and the Symbol Code
+        const symbol = symbolMatch ? symbolMatch[1] + symbolMatch[2] : "/-";
+
         const existing = await Tracker.findOne({ callsign: callsign });
         
+        // This logic now captures ANY registered station, including iGates
         if (existing && existing.isRegistered) {
             const updateData = {
                 lat: lat.toFixed(4),
                 lng: lng.toFixed(4),
-                symbol: symbolMatch ? symbolMatch[1] + symbolMatch[2] : "/>",
+                symbol: symbol, 
                 lastSeen: new Date()
             };
             
