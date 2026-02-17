@@ -75,17 +75,30 @@ channel.bind('connection-status', (data) => {
     }
 });
 
+// UPDATED: Now maintains only ONE LATEST row per callsign
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
-    const row = tbody.insertRow(0);
-    row.innerHTML = `
-        <td>${callsign}</td>
-        <td style="color: #666; font-size: 11px;">${lat}</td>
-        <td style="color: #666; font-size: 11px;">${lng}</td>
-        <td>${time}</td>
-    `;
-    if (tbody.rows.length > 5) tbody.deleteRow(5);
+
+    // Check if a row for this callsign already exists
+    let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
+
+    if (existingRow) {
+        // Update existing row and move it to the top
+        existingRow.cells[1].innerHTML = `<span style="color: #666; font-size: 11px;">${lat}</span>`;
+        existingRow.cells[2].innerHTML = `<span style="color: #666; font-size: 11px;">${lng}</span>`;
+        existingRow.cells[3].innerText = time;
+        tbody.prepend(existingRow);
+    } else {
+        // Insert new row if callsign is first seen
+        const row = tbody.insertRow(0);
+        row.innerHTML = `
+            <td>${callsign}</td>
+            <td><span style="color: #666; font-size: 11px;">${lat}</span></td>
+            <td><span style="color: #666; font-size: 11px;">${lng}</span></td>
+            <td>${time}</td>
+        `;
+    }
 }
 
 // 6. Proxy Address Logic (Bypasses CORS)
@@ -153,16 +166,13 @@ async function updateMapAndUI(data) {
     if (trackPaths[callsign]) {
         trackPaths[callsign].setLatLngs(trackCoords[callsign]);
     } else if (trackCoords[callsign].length > 0) {
-        trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10' }).addTo(map);
+        trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10', opacity: 0.6 }).addTo(map);
     }
 
-    // Fetch address
     const currentAddr = await getAddress(pos[0], pos[1]);
-    
-    // UPDATED: Use the database timestamp if available
     const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : new Date().toLocaleTimeString();
     
-    // Populate the activity table
+    // Updates the UNIQUE row in side panel
     updateRecentActivity(callsign, lat, lng, timeStr);
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
@@ -198,14 +208,14 @@ async function updateMapAndUI(data) {
     }
 }
 
-// UPDATED: Sorted loading to ensure table persistence
+// UPDATED: Robust database state restoration
 window.onload = async () => {
     try {
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
         if (Array.isArray(history)) {
-            // Sort by time (oldest first) so they stack correctly in the 'insertRow(0)' table
+            // Sort by time (oldest first) so prepend logic keeps latest on top
             history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
             history.forEach(d => updateMapAndUI(d));
         }
