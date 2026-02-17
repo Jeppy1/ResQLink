@@ -118,32 +118,50 @@ function registerStation() {
 
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
 
+// --- script.js ---
 async function submitRegistration() {
     const callsign = document.getElementById('modalCallsignDisplay').innerText;
-    const symbol = markers[callsign] ? markers[callsign].options.icon.options.symbolCode : '/[';
-
+    
+    // 1. Collect all data from the registration modal
     const data = {
-        callsign, symbol,
+        callsign: callsign,
+        // Default to map center if tracker isn't live yet
         lat: markers[callsign] ? markers[callsign].getLatLng().lat : 13.5857,
         lng: markers[callsign] ? markers[callsign].getLatLng().lng : 124.2160,
         ownerName: document.getElementById('ownerName').value,
         contactNum: document.getElementById('contactNum').value,
         emergencyName: document.getElementById('emergencyName').value,
-        emergencyNum: document.getElementById('emergencyNum').value
+        emergencyNum: document.getElementById('emergencyNum').value,
+        // Preserve original symbol if available
+        symbol: markers[callsign] ? markers[callsign].options.icon.options.symbolCode : '/[',
+        details: "Registered Responder"
     };
 
+    // 2. Validation
+    if (!data.ownerName || !data.contactNum) {
+        return alert("Owner and Contact Number are required.");
+    }
+
     try {
-        const res = await fetch('/api/register-station', {
+        const response = await fetch('/api/register-station', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        if (res.ok) {
+
+        if (response.ok) {
             closeModal();
-            showSuccess("Success", `${callsign} registered.`);
-            setTimeout(() => location.reload(), 1500);
+            // Show custom success modal instead of alert
+            showSuccess("Registration Successful", `${callsign} is now registered in both databases.`);
+            setTimeout(() => { location.reload(); }, 2000); 
+        } else {
+            const err = await response.json();
+            showSuccess("Error", err.error || "Registration failed");
         }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        console.error("Connection Error:", e);
+        showSuccess("Network Error", "Could not reach the server.");
+    }
 }
 
 // 7. Update UI
