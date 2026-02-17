@@ -87,8 +87,14 @@
         <div class="header-row">
             <img src="Logo.png" class="logo" alt="ResQLink Logo">
             <button onclick="handleLogout()" class="btn-logout" title="Logout">
-                <i class="fa-solid fa-right-from-bracket"></i> Logout
+                <i class="fa-solid fa-right-from-bracket"></i>
             </button>
+        </div>
+
+        <div class="user-info">
+            <div id="role-badge" class="role-badge">
+                <i class="fa-solid fa-shield-user"></i> <span id="role-text">Loading Role...</span>
+            </div>
         </div>
         
         <div class="status-box">
@@ -133,13 +139,13 @@
         </div>
 
         <div class="history-container">
-            <h4><i class="fa-solid fa-clock-rotate-left"></i> Recent Activity</h4>
+            <h4><i class="fa-solid fa-clock-rotate-left"></i> Latest Activity</h4>
             <table class="activity-table">
                 <thead>
                     <tr>
                         <th>Callsign</th>
-                        <th>Latitude</th>
-                        <th>Longitude</th>
+                        <th>Lat</th>
+                        <th>Lng</th>
                         <th>Received</th>
                     </tr>
                 </thead>
