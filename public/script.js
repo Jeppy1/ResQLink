@@ -231,11 +231,23 @@ async function updateMapAndUI(data) {
         markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
     }
 }
+// --- script.js ---
 window.onload = async () => {
-    const res = await fetch('/api/positions');
-    if (res.status === 401) window.location.href = '/login.html';
-    const history = await res.json();
-    history.forEach(d => updateMapAndUI(d));
+    try {
+        const response = await fetch('/api/positions');
+        if (response.status === 401) { window.location.href = '/login.html'; return; }
+        
+        const history = await response.json();
+        
+        // Safety check: ensure history is an array
+        if (Array.isArray(history)) {
+            history.forEach(data => { updateMapAndUI(data); });
+        } else {
+            console.error("Expected array but got:", history);
+        }
+    } catch (err) { 
+        console.error("Error loading historical data:", err); 
+    }
 };
 
 channel.bind('new-data', updateMapAndUI);
