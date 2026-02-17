@@ -53,9 +53,13 @@ function closeSuccessModal() {
     document.getElementById('successModal').style.display = 'none';
 }
 
+// --- Updated Confirm Modal Trigger ---
 function openConfirmModal(callsign) {
     pendingClearCallsign = callsign;
-    document.getElementById('confirmMessage').innerText = `Clear the pathing history for ${callsign}?`;
+    // Update the strong tag in the new alert box
+    const displayTag = document.getElementById('confirmCallsign');
+    if (displayTag) displayTag.innerText = callsign;
+    
     document.getElementById('confirmModal').style.display = 'flex';
 }
 
