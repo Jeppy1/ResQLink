@@ -355,38 +355,48 @@ button:hover {
     color: #ef4444;
 }
 
-/* Warning Header Styling */
+/* Clean Header Styling */
 .warning-header {
-    background: #fdf2f2 !important; /* Soft red background */
-    border-bottom: 2px solid #fee2e2;
+    background: #ffffff !important; /* Pure white background */
+    border-bottom: 1px solid #eeeeee;
+    padding: 15px 20px;
 }
 
 .warning-header h3 {
-    color: #dc2626 !important; /* Deep red text */
-}
-
-/* Alert Box inside Modal */
-.warning-alert {
+    color: #dc2626 !important; /* Keep the text red for urgency */
+    font-size: 1.1rem;
     display: flex;
     align-items: center;
+    gap: 10px;
+}
+
+/* Refined Alert Box */
+.warning-alert {
+    display: flex;
+    align-items: flex-start;
     gap: 12px;
-    background: #fff5f5;
-    border-left: 4px solid #f87171;
+    background: #fffcfc; /* Very subtle tint */
+    border: 1px solid #fee2e2;
+    border-left: 4px solid #ef4444; /* Strong accent on the left */
     padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 4px;
-    color: #7f1d1d;
+    margin: 10px 0 20px 0;
+    border-radius: 6px;
+    color: #444;
     font-size: 14px;
+    line-height: 1.5;
 }
 
 .warning-alert i {
-    font-size: 20px;
+    font-size: 18px;
     color: #ef4444;
+    margin-top: 2px;
 }
 
-/* Danger Button */
+/* Danger Button Styling */
 .btn-danger {
     background: #dc2626 !important;
+    border: none;
+    transition: background 0.2s ease;
 }
 
 .btn-danger:hover {
