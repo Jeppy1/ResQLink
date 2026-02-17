@@ -32,7 +32,7 @@ app.use(session({
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 const uriTest = process.env.MONGODB_URL_TEST;
 
-// Use separate connection objects
+// Use separate connection objects with timeout safety
 const connResQLink = mongoose.createConnection(uriResQLink, { serverSelectionTimeoutMS: 5000 });
 const connTest = mongoose.createConnection(uriTest, { serverSelectionTimeoutMS: 5000 });
 
@@ -53,10 +53,11 @@ const trackerSchema = new mongoose.Schema({
 const TrackerResQLink = connResQLink.model('Tracker', trackerSchema);
 const TrackerTest = connTest.model('Tracker', trackerSchema);
 
-// Connection logging to help you debug
+// Enhanced Logging for dual connections
 connResQLink.on('connected', () => console.log("Connected to ResQLink DB"));
 connTest.on('connected', () => console.log("Connected to Test DB"));
 connResQLink.on('error', (err) => console.error("ResQLink DB Error:", err));
+connTest.on('error', (err) => console.error("Test DB Error:", err));
 
 // --- 3. PUSHER INITIALIZATION --- 
 const pusher = new Pusher({
@@ -99,7 +100,6 @@ app.post('/api/login', (req, res) => {
 
 app.get('/api/positions', isAuthenticated, async (req, res) => {
     try {
-        // Dashboard reads from the primary ResQLink DB
         const positions = await TrackerResQLink.find({ isRegistered: true });
         res.json(positions);
     } catch (err) {
@@ -112,6 +112,7 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
         const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
         const formattedCallsign = callsign.toUpperCase().trim();
 
+        // Check DB for existing symbol before overwriting
         const existingStation = await TrackerResQLink.findOne({ callsign: formattedCallsign });
         const finalSymbol = symbol || (existingStation ? existingStation.symbol : "/-");
 
@@ -129,12 +130,11 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             lastSeen: new Date()
         };
 
-        // Write to BOTH databases simultaneously
-        const saveResQ = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
+        await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
         await TrackerTest.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true });
 
         pusher.trigger("aprs-channel", "new-data", updateData);
-        res.status(200).json({ message: "Station Registered in both DBs!", data: saveResQ });
+        res.status(200).json({ message: "Station Registered in both DBs!", data: updateData });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -153,7 +153,6 @@ function connectAPRS() {
 connectAPRS();
 
 client.on('data', async (data) => {
-    // Check if both connections are ready
     if (connResQLink.readyState !== 1 || connTest.readyState !== 1) return;
 
     const rawPacket = data.toString();
@@ -165,20 +164,24 @@ client.on('data', async (data) => {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
-        const symbol = symbolMatch ? symbolMatch[1] + symbolMatch[2] : "/-";
 
-        // Check primary DB for registration
+        // 1. Find existing registration
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         
         if (existing && existing.isRegistered) {
+            // 2. Logic to prevent symbol reverting to house (/-)
+            let finalSymbol = existing.symbol || "/-"; // Default to what we have in DB
+            if (symbolMatch) {
+                finalSymbol = symbolMatch[1] + symbolMatch[2]; // Use packet symbol if valid
+            }
+
             const updateData = {
                 lat: lat.toFixed(4),
                 lng: lng.toFixed(4),
-                symbol: symbol, 
+                symbol: finalSymbol, 
                 lastSeen: new Date()
             };
             
-            // Update BOTH databases with real-time tracking data
             await TrackerResQLink.findOneAndUpdate({ callsign: callsign }, updateData);
             await TrackerTest.findOneAndUpdate({ callsign: callsign }, updateData);
             
