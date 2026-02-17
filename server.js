@@ -30,24 +30,16 @@ const connTest = mongoose.createConnection(uriTest, { serverSelectionTimeoutMS: 
 
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
-    lat: String, 
-    lng: String, 
-    symbol: String,
-    path: { type: [[Number]], default: [] }, // Stores last 5 locations for persistence
-    details: String, 
-    ownerName: String, 
-    contactNum: String,
-    emergencyName: String, 
-    emergencyNum: String,  
+    lat: String, lng: String, symbol: String,
+    path: { type: [[Number]], default: [] },
+    details: String, ownerName: String, contactNum: String,
+    emergencyName: String, emergencyNum: String,  
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 });
 
 const TrackerResQLink = connResQLink.model('Tracker', trackerSchema);
 const TrackerTest = connTest.model('Tracker', trackerSchema);
-
-connResQLink.on('connected', () => console.log("Connected to ResQLink DB"));
-connTest.on('connected', () => console.log("Connected to Test DB"));
 
 // --- 3. PUSHER INITIALIZATION --- 
 const pusher = new Pusher({
@@ -58,7 +50,20 @@ const pusher = new Pusher({
     useTLS: true
 });
 
-// --- 4. SECURE ROUTING & PROXIES ---
+// --- 4. SECURE ROUTING & ROLE MIDDLEWARE ---
+
+// Basic Auth: Check if user is logged in at all
+function isAuthenticated(req, res, next) {
+    if (req.session.user) return next();
+    res.status(401).json({ error: "Unauthorized" }); 
+}
+
+// Admin Auth: Specifically check if the role is 'admin'
+function isAdmin(req, res, next) {
+    if (req.session.user && req.session.role === 'admin') return next();
+    res.status(403).json({ error: "Access Denied: Admin privileges required." });
+}
+
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -67,12 +72,6 @@ app.get('/', (req, res) => {
     }
 });
 
-function isAuthenticated(req, res, next) {
-    if (req.session.user) return next();
-    res.status(401).json({ error: "Unauthorized" }); 
-}
-
-// Bypasses Nominatim CORS block by proxying request through server
 app.get('/api/get-address', async (req, res) => {
     const { lat, lng } = req.query;
     try {
@@ -87,38 +86,49 @@ app.get('/api/get-address', async (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
+
+// Updated Login with multi-user support
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    
+    // Check for Admin Role
     if (username === 'admin' && password === 'resqlink2026') {
         req.session.user = username;
-        req.session.save(() => res.json({ success: true }));
-    } else { res.status(401).json({ error: "Invalid Credentials" }); }
+        req.session.role = 'admin';
+        req.session.save(() => res.json({ success: true, role: 'admin' }));
+    } 
+    // Check for Staff/Viewer Role
+    else if (username === 'staff' && password === 'staff2026') {
+        req.session.user = username;
+        req.session.role = 'viewer';
+        req.session.save(() => res.json({ success: true, role: 'viewer' }));
+    } 
+    else {
+        res.status(401).json({ error: "Invalid Credentials" });
+    }
 });
 
 app.get('/api/positions', isAuthenticated, async (req, res) => {
     try {
         const positions = await TrackerResQLink.find({ isRegistered: true });
-        res.json(Array.isArray(positions) ? positions : []); // Safety check
+        res.json(Array.isArray(positions) ? positions : []); 
     } catch (err) { res.status(500).json([]); }
 });
 
-// UPDATED: Registration Guard added to prevent duplicate entries
 app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
         const formattedCallsign = callsign.toUpperCase().trim();
-
-        // Check if station is already registered
         const existingStation = await TrackerResQLink.findOne({ callsign: formattedCallsign });
+        
         if (existingStation && existingStation.isRegistered) {
             return res.status(400).json({ error: "This callsign is already registered." });
         }
 
-        const finalSymbol = symbol || (existingStation ? existingStation.symbol : "/-");
-
         const updateData = {
             callsign: formattedCallsign, lat: lat.toString(), lng: lng.toString(),
-            symbol: finalSymbol, details: details || "Registered Responder",
+            symbol: symbol || (existingStation ? existingStation.symbol : "/-"), 
+            details: details || "Registered Responder",
             ownerName, contactNum, emergencyName, emergencyNum,
             isRegistered: true, lastSeen: new Date()
         };
@@ -129,6 +139,18 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
         pusher.trigger("aprs-channel", "new-data", newStation);
         res.status(200).json({ message: "Station Registered!", data: newStation });
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// SECURE DELETE: Only Admin can access this
+app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
+    try {
+        const callsign = req.params.callsign.toUpperCase().trim();
+        await TrackerResQLink.findOneAndDelete({ callsign: callsign });
+        await TrackerTest.findOneAndDelete({ callsign: callsign });
+        
+        pusher.trigger("aprs-channel", "delete-data", { callsign });
+        res.status(200).json({ message: "Station deleted successfully." });
+    } catch (err) { res.status(500).json({ error: "Failed to delete." }); }
 });
 
 // --- 5. APRS-IS & DATA PROCESSING ---
@@ -146,7 +168,6 @@ client.on('data', async (data) => {
     const rawPacket = data.toString();
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
-    const symbolMatch = rawPacket.match(/([\/\\])(.)/);
 
     if (latMatch && lngMatch) {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
@@ -156,16 +177,13 @@ client.on('data', async (data) => {
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
-            let finalSymbol = existing.symbol || "/-"; 
-            if (symbolMatch) finalSymbol = symbolMatch[1] + symbolMatch[2];
-
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
-                { lat: lat.toFixed(4), lng: lng.toFixed(4), symbol: finalSymbol, lastSeen: new Date(),
-                  $push: { path: { $each: [newCoords], $slice: -5 } } }, // Keeps path history
+                { lat: lat.toFixed(4), lng: lng.toFixed(4), lastSeen: new Date(),
+                  $push: { path: { $each: [newCoords], $slice: -5 } } },
                 { new: true }
             );
-            await TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4), symbol: finalSymbol,
+            await TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4),
                   $push: { path: { $each: [newCoords], $slice: -5 } } });
             
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), callsign });
