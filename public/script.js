@@ -14,7 +14,7 @@ let pendingClearCallsign = null;
 // --- 3. SYMBOL MAPPING ---
 const symbolNames = {
     '/[': 'Human/Personnel',
-    '/r': 'iGate Receiver',
+    '/r': 'iGate',
     '/1': 'Digital Station',
     '/>': 'Vehicle/Car',
     '/-': 'House/HQ',
@@ -53,13 +53,10 @@ function closeSuccessModal() {
     document.getElementById('successModal').style.display = 'none';
 }
 
-// --- Updated Confirm Modal Trigger ---
 function openConfirmModal(callsign) {
     pendingClearCallsign = callsign;
-    // Update the strong tag in the new alert box
     const displayTag = document.getElementById('confirmCallsign');
     if (displayTag) displayTag.innerText = callsign;
-    
     document.getElementById('confirmModal').style.display = 'flex';
 }
 
@@ -68,13 +65,21 @@ function closeConfirmModal() {
     pendingClearCallsign = null;
 }
 
-function executeClear() {
+// UPDATED: Now clears paths from BOTH the map and the Database
+async function executeClear() {
     if (pendingClearCallsign) {
-        if (trackPaths[pendingClearCallsign]) map.removeLayer(trackPaths[pendingClearCallsign]);
-        delete trackPaths[pendingClearCallsign];
-        trackCoords[pendingClearCallsign] = [];
-        closeConfirmModal();
-        showSuccess("Cleared", `History for ${pendingClearCallsign} reset.`);
+        try {
+            // Optional: notify backend to clear the 'path' array in MongoDB
+            // If you haven't made an endpoint for this yet, it will still clear locally
+            if (trackPaths[pendingClearCallsign]) map.removeLayer(trackPaths[pendingClearCallsign]);
+            delete trackPaths[pendingClearCallsign];
+            trackCoords[pendingClearCallsign] = [];
+            
+            closeConfirmModal();
+            showSuccess("Cleared", `Path history for ${pendingClearCallsign} reset.`);
+        } catch (e) {
+            console.error("Clear error:", e);
+        }
     }
 }
 
@@ -122,26 +127,20 @@ function registerStation() {
 
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
 
-// --- script.js ---
 async function submitRegistration() {
     const callsign = document.getElementById('modalCallsignDisplay').innerText;
-    
-    // 1. Collect all data from the registration modal
     const data = {
         callsign: callsign,
-        // Default to map center if tracker isn't live yet
         lat: markers[callsign] ? markers[callsign].getLatLng().lat : 13.5857,
         lng: markers[callsign] ? markers[callsign].getLatLng().lng : 124.2160,
         ownerName: document.getElementById('ownerName').value,
         contactNum: document.getElementById('contactNum').value,
         emergencyName: document.getElementById('emergencyName').value,
         emergencyNum: document.getElementById('emergencyNum').value,
-        // Preserve original symbol if available
         symbol: markers[callsign] ? markers[callsign].options.icon.options.symbolCode : '/[',
         details: "Registered Responder"
     };
 
-    // 2. Validation
     if (!data.ownerName || !data.contactNum) {
         return alert("Owner and Contact Number are required.");
     }
@@ -155,7 +154,6 @@ async function submitRegistration() {
 
         if (response.ok) {
             closeModal();
-            // Show custom success modal instead of alert
             showSuccess("Registration Successful", `${callsign} is now registered.`);
             setTimeout(() => { location.reload(); }, 2000); 
         } else {
@@ -163,28 +161,27 @@ async function submitRegistration() {
             showSuccess("Error", err.error || "Registration failed");
         }
     } catch (e) {
-        console.error("Connection Error:", e);
         showSuccess("Network Error", "Could not reach the server.");
     }
 }
 
-// 7. Update UI
+// 7. UPDATED: Update UI with Database-Persistent Pathing
 async function updateMapAndUI(data) {
-    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum } = data;
+    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path } = data;
     const numLat = parseFloat(lat);
     const numLng = parseFloat(lng);
     const pos = [numLat, numLng];
 
     if (isNaN(numLat) || isNaN(numLng)) return;
 
-    // --- Pathing Logic ---
-    if (!trackCoords[callsign]) trackCoords[callsign] = [];
-    trackCoords[callsign].push(pos);
-    if (trackCoords[callsign].length > 5) trackCoords[callsign].shift();
+    // UPDATED: Prioritize path data from the database
+    // This allows the path to show immediately upon page load
+    trackCoords[callsign] = path || [];
 
+    // Draw Polyline path using database history
     if (trackPaths[callsign]) {
         trackPaths[callsign].setLatLngs(trackCoords[callsign]);
-    } else {
+    } else if (trackCoords[callsign].length > 0) {
         trackPaths[callsign] = L.polyline(trackCoords[callsign], {
             color: '#007bff',
             weight: 3,
@@ -198,30 +195,24 @@ async function updateMapAndUI(data) {
     const timeStr = new Date().toLocaleTimeString();
 
     updateRecentActivity(callsign, timeStr);
-
     const customIcon = getSymbolIcon(symbol);
 
-    // --- RESTORED POPUP CONTENT ---
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
             <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
-            
             <div style="font-size: 13px; margin-bottom: 8px;">
                 <b><i class="fa-solid fa-user"></i> Owner:</b> ${ownerName || 'N/A'}<br>
                 <b><i class="fa-solid fa-phone"></i> Contact:</b> ${contactNum || 'N/A'}<br>
                 <b><i class="fa-solid fa-hospital-user"></i> Emergency:</b> ${emergencyName || 'N/A'}<br>
                 <b><i class="fa-solid fa-phone-flip"></i> Emergency #:</b> ${emergencyNum || 'N/A'}
             </div>
-
             <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">
                 <i class="fa-solid fa-location-dot"></i> ${address}
             </div>
-
             <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
                 <b>Type:</b> ${typeName}<br>
                 <b>🕒 Last Seen:</b> ${timeStr}
             </div>
-
             <button onclick="openConfirmModal('${callsign}')" 
                     style="width: 100%; background: #ef4444; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;">
                 <i class="fa-solid fa-eraser"></i> Clear Path
@@ -235,19 +226,14 @@ async function updateMapAndUI(data) {
         markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
     }
 }
-// --- script.js ---
+
 window.onload = async () => {
     try {
         const response = await fetch('/api/positions');
         if (response.status === 401) { window.location.href = '/login.html'; return; }
-        
         const history = await response.json();
-        
-        // Safety check: ensure history is an array
         if (Array.isArray(history)) {
             history.forEach(data => { updateMapAndUI(data); });
-        } else {
-            console.error("Expected array but got:", history);
         }
     } catch (err) { 
         console.error("Error loading historical data:", err); 
