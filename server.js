@@ -30,10 +30,15 @@ const connTest = mongoose.createConnection(uriTest, { serverSelectionTimeoutMS: 
 
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
-    lat: String, lng: String, symbol: String,
-    path: { type: [[Number]], default: [] }, // Persists last 5 locations
-    details: String, ownerName: String, contactNum: String,
-    emergencyName: String, emergencyNum: String,  
+    lat: String, 
+    lng: String, 
+    symbol: String,
+    path: { type: [[Number]], default: [] }, // Stores last 5 locations for persistence
+    details: String, 
+    ownerName: String, 
+    contactNum: String,
+    emergencyName: String, 
+    emergencyNum: String,  
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 });
@@ -97,11 +102,18 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     } catch (err) { res.status(500).json([]); }
 });
 
+// UPDATED: Registration Guard added to prevent duplicate entries
 app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
         const formattedCallsign = callsign.toUpperCase().trim();
+
+        // Check if station is already registered
         const existingStation = await TrackerResQLink.findOne({ callsign: formattedCallsign });
+        if (existingStation && existingStation.isRegistered) {
+            return res.status(400).json({ error: "This callsign is already registered." });
+        }
+
         const finalSymbol = symbol || (existingStation ? existingStation.symbol : "/-");
 
         const updateData = {
@@ -150,7 +162,7 @@ client.on('data', async (data) => {
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
                 { lat: lat.toFixed(4), lng: lng.toFixed(4), symbol: finalSymbol, lastSeen: new Date(),
-                  $push: { path: { $each: [newCoords], $slice: -5 } } }, // Persistent history
+                  $push: { path: { $each: [newCoords], $slice: -5 } } }, // Keeps path history
                 { new: true }
             );
             await TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4), symbol: finalSymbol,
