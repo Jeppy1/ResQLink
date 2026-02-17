@@ -402,3 +402,29 @@ button:hover {
 .btn-danger:hover {
     background: #b91c1c !important;
 }
+
+/* Role Badge Styling */
+.role-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 15px;
+    background: rgba(255, 255, 255, 0.1); /* Default */
+}
+
+/* Green for Admin */
+.role-admin {
+    background: #22c55e;
+    color: white;
+}
+
+/* Blue for Staff/Viewer */
+.role-viewer {
+    background: #3b82f6;
+    color: white;
+}
