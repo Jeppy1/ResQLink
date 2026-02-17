@@ -10,35 +10,20 @@ var markers = {};
 var trackPaths = {}; 
 var trackCoords = {}; 
 let pendingClearCallsign = null;
+let userRole = ''; // Global variable to store the role
 
 // --- 3. SYMBOL MAPPING ---
 const symbolNames = { 
-    '/[': 'Human', 
-    '/r': 'iGate', 
-    '/1': 'Digital Station', 
-    '/>': 'Vehicle', 
-    '/-': 'Home', 
-    '/A': 'Ambulance', 
-    '/f': 'Fire Truck' 
+    '/[': 'Human', '/r': 'iGate', '/1': 'Digital Station', '/>': 'Vehicle', '/-': 'Home', '/A': 'Ambulance', '/f': 'Fire Truck' 
 };
 
 function getSymbolIcon(symbol) {
     const iconMapping = { 
-        '/[': 'human.png', 
-        '/r': 'igate.png', 
-        '/1': 'station.png', 
-        '/>': 'car.png', 
-        '/-': 'house.png', 
-        '/a': 'ambulance.png', 
-        '/f': 'fire_truck.png' 
+        '/[': 'human.png', '/r': 'igate.png', '/1': 'station.png', '/>': 'car.png', '/-': 'house.png', '/a': 'ambulance.png', '/f': 'fire_truck.png' 
     };
     const fileName = iconMapping[symbol] || 'default-pin.png';
     return L.icon({ 
-        iconUrl: `icons/${fileName}`, 
-        iconSize: [32, 32], 
-        iconAnchor: [16, 16], 
-        popupAnchor: [0, -15], 
-        symbolCode: symbol 
+        iconUrl: `icons/${fileName}`, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -15], symbolCode: symbol 
     });
 }
 
@@ -67,6 +52,20 @@ function executeClear() {
     }
 }
 
+// --- ADMIN DELETE FUNCTION ---
+async function deleteStation(callsign) {
+    if (!confirm(`Permanently remove ${callsign} from the database?`)) return;
+    try {
+        const response = await fetch(`/api/delete-station/${callsign}`, { method: 'DELETE' });
+        if (response.ok) {
+            showSuccess("Deleted", `${callsign} has been removed.`);
+        } else {
+            const err = await response.json();
+            alert(err.error || "You do not have permission to delete this.");
+        }
+    } catch (e) { console.error("Network error during deletion:", e); }
+}
+
 // --- 5. DASHBOARD LISTENERS ---
 channel.bind('connection-status', (data) => {
     if(data.status === "Online") {
@@ -75,12 +74,24 @@ channel.bind('connection-status', (data) => {
     }
 });
 
+// Listener for real-time deletion
+channel.bind('delete-data', (data) => {
+    const { callsign } = data;
+    if (markers[callsign]) {
+        map.removeLayer(markers[callsign]);
+        if (trackPaths[callsign]) map.removeLayer(trackPaths[callsign]);
+        delete markers[callsign];
+        delete trackPaths[callsign];
+        const tbody = document.getElementById('history-body');
+        const targetRow = Array.from(tbody.rows).find(r => r.cells[0].innerText === callsign);
+        if (targetRow) targetRow.remove();
+    }
+});
+
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
-
     let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
-
     if (existingRow) {
         existingRow.cells[1].innerHTML = `<span style="color: #666; font-size: 11px;">${lat}</span>`;
         existingRow.cells[2].innerHTML = `<span style="color: #666; font-size: 11px;">${lng}</span>`;
@@ -88,16 +99,10 @@ function updateRecentActivity(callsign, lat, lng, time) {
         tbody.prepend(existingRow);
     } else {
         const row = tbody.insertRow(0);
-        row.innerHTML = `
-            <td>${callsign}</td>
-            <td><span style="color: #666; font-size: 11px;">${lat}</span></td>
-            <td><span style="color: #666; font-size: 11px;">${lng}</span></td>
-            <td>${time}</td>
-        `;
+        row.innerHTML = `<td>${callsign}</td><td><span style="color: #666; font-size: 11px;">${lat}</span></td><td><span style="color: #666; font-size: 11px;">${lng}</span></td><td>${time}</td>`;
     }
 }
 
-// 6. Proxy Address Logic (Bypasses CORS)
 async function getAddress(lat, lng) {
     try {
         const res = await fetch(`/api/get-address?lat=${lat}&lng=${lng}`);
@@ -108,56 +113,37 @@ async function getAddress(lat, lng) {
 
 function trackCallsign() {
     const input = document.getElementById('callSign').value.toUpperCase().trim();
-    if (markers[input]) { 
-        map.setView(markers[input].getLatLng(), 15, { animate: true }); 
-        markers[input].openPopup(); 
-    }
+    if (markers[input]) { map.setView(markers[input].getLatLng(), 15, { animate: true }); markers[input].openPopup(); }
 }
 
 function handleLogout() { window.location.href = '/api/logout'; }
 
-// UPDATED: Registration Guard to prevent duplicates
 function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
     if (!cs) return alert("Enter callsign.");
-
-    // Check if the marker exists and is already marked as registered
     const existingMarker = markers[cs];
     if (existingMarker && existingMarker.isRegistered) {
         showSuccess("Already Registered", `${cs} is already in the ResQLink database.`);
         return; 
     }
-
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
 }
+
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
 
 async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
     const data = {
-        callsign: cs, 
-        lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857, 
-        lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
-        ownerName: document.getElementById('ownerName').value, 
-        contactNum: document.getElementById('contactNum').value,
-        emergencyName: document.getElementById('emergencyName').value, 
-        emergencyNum: document.getElementById('emergencyNum').value,
-        symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', 
-        details: "Registered Responder"
+        callsign: cs, lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857, lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
+        ownerName: document.getElementById('ownerName').value, contactNum: document.getElementById('contactNum').value,
+        emergencyName: document.getElementById('emergencyName').value, emergencyNum: document.getElementById('emergencyNum').value,
+        symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', details: "Registered Responder"
     };
     if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
     try {
-        const res = await fetch('/api/register-station', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(data) 
-        });
-        if (res.ok) { 
-            closeModal(); 
-            showSuccess("Success", `${cs} registered.`); 
-            setTimeout(() => location.reload(), 1500); 
-        }
+        const res = await fetch('/api/register-station', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        if (res.ok) { closeModal(); showSuccess("Success", `${cs} registered.`); setTimeout(() => location.reload(), 1500); }
     } catch (e) { showSuccess("Error", "Server unreachable."); }
 }
 
@@ -176,46 +162,52 @@ async function updateMapAndUI(data) {
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : new Date().toLocaleTimeString();
-    
     updateRecentActivity(callsign, lat, lng, timeStr);
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
 
+    // Only show delete button if user is Admin
+    const deleteBtn = userRole === 'admin' ? `
+        <button onclick="deleteStation('${callsign}')" 
+                style="flex: 1; background: #111827; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
+            <i class="fa-solid fa-trash"></i> Delete
+        </button>` : '';
+
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
             <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
             <div style="font-size: 13px; margin-bottom: 8px;">
-                <b><i class="fa-solid fa-user"></i> Owner:</b> ${ownerName || 'N/A'}<br>
-                <b><i class="fa-solid fa-phone"></i> Contact:</b> ${contactNum || 'N/A'}<br>
-                <b><i class="fa-solid fa-hospital-user"></i> Emergency:</b> ${emergencyName || 'N/A'}<br>
-                <b><i class="fa-solid fa-phone-flip"></i> Emergency #:</b> ${emergencyNum || 'N/A'}
+                <b>Owner:</b> ${ownerName || 'N/A'}<br>
+                <b>Contact:</b> ${contactNum || 'N/A'}<br>
+                <b>Emergency:</b> ${emergencyName || 'N/A'}<br>
+                <b>Emergency #:</b> ${emergencyNum || 'N/A'}
             </div>
-            <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">
-                <i class="fa-solid fa-location-dot"></i> ${currentAddr}
-            </div>
+            <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div>
             <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
-                <b>Type:</b> ${typeName}<br>
-                <b>🕒 Last Seen:</b> ${timeStr}
+                <b>Type:</b> ${typeName}<br><b>🕒 Last Seen:</b> ${timeStr}
             </div>
-            <button onclick="openConfirmModal('${callsign}')" 
-                    style="width: 100%; background: #ef4444; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;">
-                <i class="fa-solid fa-eraser"></i> Clear Path
-            </button>
+            <div style="display: flex; gap: 5px;">
+                <button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>
+                ${deleteBtn}
+            </div>
         </div>
     `;
 
     if (markers[callsign]) {
         markers[callsign].setLatLng(pos).setIcon(customIcon).setPopupContent(popupContent);
-        markers[callsign].isRegistered = isRegistered; // Save status
+        markers[callsign].isRegistered = isRegistered;
     } else {
         markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
-        markers[callsign].isRegistered = isRegistered; // Save status
+        markers[callsign].isRegistered = isRegistered;
     }
 }
 
 window.onload = async () => {
     try {
+        // Retrieve role from localStorage (saved during login)
+        userRole = localStorage.getItem('userRole') || 'viewer'; 
+        
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
