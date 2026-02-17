@@ -203,19 +203,33 @@ async function updateMapAndUI(data) {
     }
 }
 
+// Inside window.onload in script.js
 window.onload = async () => {
     try {
-        // Retrieve role from localStorage (saved during login)
+        // 1. Get role from local storage
         userRole = localStorage.getItem('userRole') || 'viewer'; 
         
+        // 2. Update the Sidebar Label
+        const roleText = document.getElementById('role-text');
+        const roleBadge = document.getElementById('role-badge');
+        
+        if (roleText && roleBadge) {
+            roleText.innerText = userRole === 'admin' ? "System Admin" : "Field Staff";
+            roleBadge.classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
+        }
+
+        // 3. Load database data
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
+        
         if (Array.isArray(history)) {
             history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
             history.forEach(d => updateMapAndUI(d));
         }
-    } catch (err) { console.error("History failed:", err); }
+    } catch (err) { 
+        console.error("Dashboard initialization failed:", err); 
+    }
 };
 
 channel.bind('new-data', updateMapAndUI);
