@@ -1,5 +1,5 @@
 // --- 0. INITIALIZATION ---
-require('dotenv').config(); // MUST be the first line to load variables
+require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
@@ -18,7 +18,7 @@ app.use(express.json());
 app.set('trust proxy', 1); 
 
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'resqlink-secure-key-2026', // Use env variable
+    secret: process.env.SESSION_SECRET || 'resqlink-secure-key-2026',
     resave: false,
     saveUninitialized: false, 
     cookie: { 
@@ -29,16 +29,16 @@ app.use(session({
 }));
 
 // --- 2. MONGODB CONFIGURATION ---
-// Removed hardcoded URL to prevent GitHub leaks
 const mongoURI = process.env.MONGODB_URL; 
 
 async function connectToDatabase() {
     if (!mongoURI) {
-        console.error("FATAL ERROR: MONGODB_URL is not defined in environment variables.");
+        console.error("FATAL ERROR: MONGODB_URL is not defined.");
         return;
     }
     try {
-        await mongoose.connect(mongoURI, { serverSelectionTimeoutMS: 5000, bufferCommands: false });
+        // Changed bufferCommands to true to prevent data drops during connection
+        await mongoose.connect(mongoURI, { serverSelectionTimeoutMS: 5000, bufferCommands: true });
         console.log("SUCCESS: Connected to MongoDB Database");
     } catch (err) {
         console.error("DATABASE CONNECTION ERROR:", err.message);
@@ -59,7 +59,7 @@ const trackerSchema = new mongoose.Schema({
     emergencyNum: String,  
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
-}, { bufferCommands: false });
+}, { bufferCommands: true });
 
 const Tracker = mongoose.model('Tracker', trackerSchema);
 
@@ -74,7 +74,6 @@ const pusher = new Pusher({
 
 // --- 4. SECURE ROUTING LOGIC ---
 
-// Root Route: Explicitly decide which page to serve before static middleware
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -88,14 +87,12 @@ function isAuthenticated(req, res, next) {
     res.status(401).json({ error: "Unauthorized" }); 
 }
 
-// Serve other static assets ONLY if they pass the logic above
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    // For production, consider moving these credentials to .env as well
     if (username === 'admin' && password === 'resqlink2026') {
         req.session.user = username;
         req.session.save((err) => {
@@ -124,6 +121,7 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     }
 });
 
+// FIXED: Registration logic now preserves existing symbols
 app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { 
@@ -131,11 +129,17 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             ownerName, contactNum, emergencyName, emergencyNum 
         } = req.body;
 
+        const formattedCallsign = callsign.toUpperCase().trim();
+
+        // Check if this station already has a symbol in the DB before defaulting
+        const existingStation = await Tracker.findOne({ callsign: formattedCallsign });
+        const finalSymbol = symbol || (existingStation ? existingStation.symbol : "/-");
+
         const updateData = {
-            callsign: callsign.toUpperCase().trim(),
+            callsign: formattedCallsign,
             lat: lat.toString(),
             lng: lng.toString(),
-            symbol: symbol || "/-",
+            symbol: finalSymbol,
             details: details || "Registered Responder",
             ownerName,
             contactNum,
@@ -146,7 +150,7 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
         };
 
         const newStation = await Tracker.findOneAndUpdate(
-            { callsign: updateData.callsign }, 
+            { callsign: formattedCallsign }, 
             updateData, 
             { upsert: true, new: true }
         );
@@ -163,19 +167,20 @@ const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "asia.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n");
-        client.write("#filter p/DU/DW/DV/DY/DZ\n"); 
+        client.write("#filter p/DU/DW/DV/DY/DZ\n");
+        console.log("SUCCESS: APRS-IS Network Connected");
+        
+        // Notify frontend to turn the status dot green
+        pusher.trigger("aprs-channel", "connection-status", { status: "Online" });
     });
 }
 connectAPRS();
 
-// --- 5. APRS-IS & DATA PROCESSING ---
 client.on('data', async (data) => {
     if (mongoose.connection.readyState !== 1) return;
     const rawPacket = data.toString();
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
-    
-    // Improved Regex: Specifically captures the 2-character APRS symbol
     const symbolMatch = rawPacket.match(/([\/\\])(.)/);
 
     if (latMatch && lngMatch) {
@@ -183,12 +188,9 @@ client.on('data', async (data) => {
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
 
-        // Capture both the Table ID and the Symbol Code
         const symbol = symbolMatch ? symbolMatch[1] + symbolMatch[2] : "/-";
-
         const existing = await Tracker.findOne({ callsign: callsign });
         
-        // This logic now captures ANY registered station, including iGates
         if (existing && existing.isRegistered) {
             const updateData = {
                 lat: lat.toFixed(4),
