@@ -12,7 +12,6 @@ var trackCoords = {};
 let pendingClearCallsign = null;
 
 // --- 3. SYMBOL MAPPING ---
-// Added mapping for iGate and Digital Station to match your Legend
 const symbolNames = { 
     '/[': 'Human', 
     '/r': 'iGate', 
@@ -76,11 +75,18 @@ channel.bind('connection-status', (data) => {
     }
 });
 
-function updateRecentActivity(callsign, time) {
+// UPDATED: Now accepts and displays lat/lng
+function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
     const row = tbody.insertRow(0);
-    row.innerHTML = `<td>${callsign}</td><td>${time}</td>`;
+    // Added new <td> elements for coordinates
+    row.innerHTML = `
+        <td>${callsign}</td>
+        <td style="color: #666; font-size: 11px;">${lat}</td>
+        <td style="color: #666; font-size: 11px;">${lng}</td>
+        <td>${time}</td>
+    `;
     if (tbody.rows.length > 5) tbody.deleteRow(5);
 }
 
@@ -155,12 +161,13 @@ async function updateMapAndUI(data) {
     // Fetch address through server proxy
     const currentAddr = await getAddress(pos[0], pos[1]);
     const timeStr = new Date().toLocaleTimeString();
-    updateRecentActivity(callsign, timeStr);
+    
+    // UPDATED: Now passing lat and lng values to the table
+    updateRecentActivity(callsign, lat, lng, timeStr);
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
 
-    // FIXED: Corrected 'address' variable name to 'currentAddr' to prevent crash
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
             <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
@@ -200,7 +207,6 @@ window.onload = async () => {
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
-        // Array safety check
         if (Array.isArray(history)) {
             history.forEach(d => updateMapAndUI(d));
         }
