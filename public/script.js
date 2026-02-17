@@ -14,10 +14,10 @@ var trackCoords = {};
 // --- 3. UPDATED SYMBOL MAPPING ---
 const symbolNames = {
     '/[': 'Human/Personnel',
-    '/r': 'iGate Receiver',
+    '/r': 'House/HQ',
     '/1': 'Digital Station',
     '/>': 'Vehicle/Car',
-    '/-': 'House/HQ',
+    '/-': 'iGate',
     '/A': 'Ambulance',
     '/f': 'Fire Truck',
     '/u': 'Truck',
@@ -27,10 +27,10 @@ const symbolNames = {
 function getSymbolIcon(symbol) {
     const iconMapping = {
         '/[': 'human.png',      // Correct code for Human
-        '/r': 'igate.png',      // Correct code for iGate
+        '/r': 'house.png',      // Correct code for iGate
         '/1': 'station.png',    // Digital/Tactical 1
         '/>': 'car.png',
-        '/-': 'house.png',
+        '/-': 'igate.png',
         '/a': 'ambulance.png',
         '/f': 'fire_truck.png',
         '/u': 'truck.png'
