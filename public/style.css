@@ -23,7 +23,7 @@ body, html {
 
 /* --- 2. SIDE PANEL (DASHBOARD) --- */
 .side-panel {
-    width: 320px;
+    width: 300px; /* Reduced width for a sleeker look */
     background: #1e293b;
     padding: 20px;
     box-shadow: -2px 0 15px rgba(0,0,0,0.5);
@@ -38,15 +38,14 @@ body, html {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 5px; /* Tighter spacing for the badge below */
 }
 
-/* Fix: Ensures logo stays within the side panel or login card */
+/* Fix: Logo scaling to prevent overflow */
 .logo {
-    max-width: 100%;
+    max-width: 180px; /* Constrained width */
     height: auto;
     display: block;
-    margin: 0 auto;
     filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.2));
 }
 
@@ -68,38 +67,21 @@ body, html {
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-.role-admin {
-    background-color: #22c55e !important;
-    color: white;
-    border: 1px solid #16a34a;
-}
-
-.role-viewer {
-    background-color: #3b82f6 !important;
-    color: white;
-    border: 1px solid #2563eb;
-}
+.role-admin { background-color: #22c55e !important; color: white; border: 1px solid #16a34a; }
+.role-viewer { background-color: #3b82f6 !important; color: white; border: 1px solid #2563eb; }
 
 .status-box {
     padding: 10px;
     background: rgba(15, 23, 42, 0.5);
     border-radius: 8px;
     margin-bottom: 15px;
-    font-size: 13px;
+    font-size: 12px;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-#status-dot {
-    color: #ef4444;
-    margin-right: 5px;
-    transition: color 0.3s ease;
-}
+#status-dot { color: #ef4444; margin-right: 5px; }
 
 /* --- 4. CONTROLS & INPUTS --- */
-.control-group {
-    margin-bottom: 20px;
-}
-
 input {
     width: 100%;
     padding: 12px;
@@ -109,100 +91,32 @@ input {
     border-radius: 8px;
     box-sizing: border-box;
     color: white;
-    transition: 0.2s ease;
 }
 
-input:focus {
-    border-color: #38bdf8;
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
-    outline: none;
-}
-
-.button-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-}
+.button-row { display: flex; gap: 8px; margin-bottom: 15px; }
 
 button {
     width: 100%;
-    padding: 12px;
+    padding: 10px;
     background-color: #0284c7;
     color: white;
     border: none;
     border-radius: 8px;
     cursor: pointer;
     font-weight: bold;
-    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 13px;
+    transition: 0.2s;
 }
 
-button:hover {
-    background-color: #0ea5e9;
-    transform: translateY(-1px);
-}
+button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
 
-/* --- 5. MODALS & OVERLAYS --- */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.85);
-    backdrop-filter: blur(8px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
+/* --- 5. ACTIVITY TABLE --- */
+.history-container { margin-top: 20px; }
+.activity-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.activity-table th { text-align: left; color: #38bdf8; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.activity-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 
-.modal-card {
-    background: #1e293b;
-    width: 90%;
-    max-width: 420px;
-    padding: 30px;
-    border-radius: 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.warning-header {
-    background: #ffffff !important;
-    border-bottom: 1px solid #eeeeee;
-    padding: 15px 20px;
-    border-radius: 20px 20px 0 0;
-    margin: -30px -30px 20px -30px;
-}
-
-.warning-header h3 {
-    color: #dc2626 !important;
-    font-size: 1.1rem;
-    display: flex; align-items: center; gap: 10px;
-    margin: 0;
-}
-
-/* --- 6. ACTIVITY TABLE --- */
-.history-container {
-    margin-top: 20px;
-}
-
-.activity-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 11px;
-}
-
-.activity-table th {
-    text-align: left;
-    color: #38bdf8;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.activity-table td {
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-/* --- 7. LOGIN PAGE (IMAGE MATCH) --- */
+/* --- 6. LOGIN PAGE (FIXED ALIGNMENT) --- */
 .login-body {
     height: 100vh;
     display: flex;
@@ -223,13 +137,12 @@ button:hover {
     text-align: center;
 }
 
-/* Fix: Logo scaling inside the card */
+/* Fix: Smaller, centered logo for the login card */
 .login-logo {
-    width: 100%;
-    max-width: 320px;
+    width: 280px; /* Reduced from 380px to fit comfortably */
     height: auto;
-    margin-bottom: 30px;
-    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.3));
+    margin: 0 auto 35px auto;
+    display: block;
 }
 
 .input-group {
@@ -239,7 +152,7 @@ button:hover {
     align-items: center;
 }
 
-/* Fix: Positioning icons inside the inputs so they don't overlap text */
+/* Fix: Icon positioning to prevent text overlap */
 .input-group i:first-child {
     position: absolute;
     left: 15px;
@@ -248,10 +161,10 @@ button:hover {
     z-index: 10;
 }
 
-/* Added padding-left to input to clear the icon */
+/* Fix: Padding adjusted to clear the icon space */
 .input-group input {
     width: 100%;
-    padding: 12px 40px 12px 45px; 
+    padding: 12px 40px 12px 45px; /* 45px left padding clears the icon */
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px;
@@ -260,7 +173,6 @@ button:hover {
     box-sizing: border-box;
 }
 
-/* Fix: Eye icon positioning */
 #togglePassword {
     position: absolute;
     right: 15px;
@@ -280,15 +192,14 @@ button:hover {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    margin-top: 10px;
 }
 
-/* Fix: Text color set to Red for warning */
+/* Fix: Red warning text for footer */
 .login-footer {
     margin-top: 25px;
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #ef4444; /* High-visibility red */
+    color: #ef4444; /* Alert red */
     font-weight: bold;
 }
