@@ -10,7 +10,7 @@ var markers = {};
 var trackPaths = {}; 
 var trackCoords = {}; 
 let pendingClearCallsign = null;
-let stationToDelete = null; // To store callsign for custom delete modal
+let stationToDelete = null; 
 let userRole = ''; 
 
 // --- 3. SYMBOL MAPPING ---
@@ -34,7 +34,12 @@ function showSuccess(title, message) {
     document.getElementById('successMessage').innerText = message;
     document.getElementById('successModal').style.display = 'flex';
 }
-function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; }
+
+function closeSuccessModal() { 
+    document.getElementById('successModal').style.display = 'none'; 
+    // Manual refresh only if needed after a major registration/deletion
+    // location.reload(); // Uncomment if you want map to hard-refresh on OK
+}
 
 function openConfirmModal(callsign) {
     pendingClearCallsign = callsign;
@@ -43,14 +48,13 @@ function openConfirmModal(callsign) {
 }
 function closeConfirmModal() { document.getElementById('confirmModal').style.display = 'none'; }
 
-// --- CUSTOM DELETE MODAL LOGIC ---
+// --- UPDATED DELETE LOGIC WITH LOADING CURSOR ---
 function closeDeleteModal() {
     document.getElementById('deleteConfirmModal').style.display = 'none';
     stationToDelete = null;
 }
 
 async function deleteStation(callsign) {
-    // Show the custom mini-window instead of browser alert
     stationToDelete = callsign;
     document.getElementById('deleteCallsignDisplay').innerText = callsign;
     document.getElementById('deleteConfirmModal').style.display = 'flex';
@@ -58,19 +62,24 @@ async function deleteStation(callsign) {
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     confirmBtn.onclick = async () => {
         if (!stationToDelete) return;
+        const deletedCallsign = stationToDelete; 
         
-        const deletedCallsign = stationToDelete; // Capture callsign before resetting
+        // Show loading cursor
+        document.body.classList.add('loading-process');
         
         try {
             const response = await fetch(`/api/delete-station/${deletedCallsign}`, { method: 'DELETE' });
             if (response.ok) {
                 closeDeleteModal();
-                showSuccess("Deleted", `${deletedCallsign} has been removed.`); // Fixed null issue
+                showSuccess("Deleted", `${deletedCallsign} has been removed.`); 
             } else {
                 const err = await response.json();
-                alert(err.error || "You do not have permission to delete this.");
+                alert(err.error || "Permission Denied.");
             }
-        } catch (e) { console.error("Network error during deletion:", e); }
+        } catch (e) { console.error("Network error:", e); }
+        finally {
+            document.body.classList.remove('loading-process'); // Reset cursor
+        }
     };
 }
 
@@ -124,7 +133,7 @@ function updateRecentActivity(callsign, lat, lng, time) {
     }
 
     targetRow.classList.remove('row-update');
-    void targetRow.offsetWidth; // Force reflow
+    void targetRow.offsetWidth; 
     targetRow.classList.add('row-update');
 }
 
@@ -160,6 +169,7 @@ function registerStation() {
 
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
 
+// --- UPDATED REGISTRATION FLOW ---
 async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
     const data = {
@@ -168,14 +178,25 @@ async function submitRegistration() {
         emergencyName: document.getElementById('emergencyName').value, emergencyNum: document.getElementById('emergencyNum').value,
         symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', details: "Registered Responder"
     };
+
     if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
+    
+    // Show loading cursor
+    document.body.classList.add('loading-process');
+
     try {
         const res = await fetch('/api/register-station', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        if (res.ok) { closeModal(); showSuccess("Success", `${cs} registered.`); setTimeout(() => location.reload(), 1500); }
+        if (res.ok) { 
+            closeModal(); 
+            // Removed abrupt setTimeout/reload for smoother flow
+            showSuccess("Success", `${cs} registered successfully.`); 
+        }
     } catch (e) { showSuccess("Error", "Server unreachable."); }
+    finally {
+        document.body.classList.remove('loading-process'); // Reset cursor
+    }
 }
 
-// 7. Persistent UI Logic
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     const pos = [parseFloat(lat), parseFloat(lng)];
