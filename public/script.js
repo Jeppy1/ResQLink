@@ -75,12 +75,10 @@ channel.bind('connection-status', (data) => {
     }
 });
 
-// UPDATED: Now accepts and displays lat/lng
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
     const row = tbody.insertRow(0);
-    // Added new <td> elements for coordinates
     row.innerHTML = `
         <td>${callsign}</td>
         <td style="color: #666; font-size: 11px;">${lat}</td>
@@ -146,7 +144,7 @@ async function submitRegistration() {
 
 // 7. Persistent UI Logic
 async function updateMapAndUI(data) {
-    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path } = data;
+    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen } = data;
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
@@ -158,11 +156,13 @@ async function updateMapAndUI(data) {
         trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10' }).addTo(map);
     }
 
-    // Fetch address through server proxy
+    // Fetch address
     const currentAddr = await getAddress(pos[0], pos[1]);
-    const timeStr = new Date().toLocaleTimeString();
     
-    // UPDATED: Now passing lat and lng values to the table
+    // UPDATED: Use the database timestamp if available
+    const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : new Date().toLocaleTimeString();
+    
+    // Populate the activity table
     updateRecentActivity(callsign, lat, lng, timeStr);
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
@@ -171,23 +171,19 @@ async function updateMapAndUI(data) {
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
             <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
-            
             <div style="font-size: 13px; margin-bottom: 8px;">
                 <b><i class="fa-solid fa-user"></i> Owner:</b> ${ownerName || 'N/A'}<br>
                 <b><i class="fa-solid fa-phone"></i> Contact:</b> ${contactNum || 'N/A'}<br>
                 <b><i class="fa-solid fa-hospital-user"></i> Emergency:</b> ${emergencyName || 'N/A'}<br>
                 <b><i class="fa-solid fa-phone-flip"></i> Emergency #:</b> ${emergencyNum || 'N/A'}
             </div>
-
             <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">
                 <i class="fa-solid fa-location-dot"></i> ${currentAddr}
             </div>
-
             <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
                 <b>Type:</b> ${typeName}<br>
                 <b>🕒 Last Seen:</b> ${timeStr}
             </div>
-
             <button onclick="openConfirmModal('${callsign}')" 
                     style="width: 100%; background: #ef4444; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;">
                 <i class="fa-solid fa-eraser"></i> Clear Path
@@ -202,12 +198,15 @@ async function updateMapAndUI(data) {
     }
 }
 
+// UPDATED: Sorted loading to ensure table persistence
 window.onload = async () => {
     try {
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
         if (Array.isArray(history)) {
+            // Sort by time (oldest first) so they stack correctly in the 'insertRow(0)' table
+            history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
             history.forEach(d => updateMapAndUI(d));
         }
     } catch (err) { console.error("History failed:", err); }
