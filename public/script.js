@@ -85,16 +85,21 @@ function closeModal() {
 async function submitRegistration() {
     const callsign = document.getElementById('modalCallsignDisplay').innerText;
     
+    // Grab the existing symbol if the marker already exists on the map
+    const existingSymbol = markers[callsign] ? markers[callsign].options.icon.options.symbolCode : '/['; 
+
     const data = {
         callsign: callsign,
-        lat: 13.5857, lng: 124.2160, // Default center
+        lat: markers[callsign] ? markers[callsign].getLatLng().lat : 13.5857,
+        lng: markers[callsign] ? markers[callsign].getLatLng().lng : 124.2160,
         ownerName: document.getElementById('ownerName').value,
         contactNum: document.getElementById('contactNum').value,
         emergencyName: document.getElementById('emergencyName').value,
         emergencyNum: document.getElementById('emergencyNum').value,
-        symbol: '/-', 
+        symbol: existingSymbol, // Use the real symbol instead of hardcoded '/-'
         details: "Registered Responder"
     };
+    // ... send to fetch
 
     if (!data.ownerName || !data.contactNum) return alert("Owner and Contact are required.");
 
