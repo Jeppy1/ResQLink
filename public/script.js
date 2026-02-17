@@ -10,7 +10,7 @@ var markers = {};
 var trackPaths = {}; 
 var trackCoords = {}; 
 let pendingClearCallsign = null;
-let stationToDelete = null; // New state for custom delete modal
+let stationToDelete = null; // To store callsign for custom delete modal
 let userRole = ''; 
 
 // --- 3. SYMBOL MAPPING ---
@@ -50,28 +50,27 @@ function closeDeleteModal() {
 }
 
 async function deleteStation(callsign) {
-    // Show the custom mini-window instead of the browser alert
+    // Show the custom mini-window instead of browser alert
     stationToDelete = callsign;
     document.getElementById('deleteCallsignDisplay').innerText = callsign;
     document.getElementById('deleteConfirmModal').style.display = 'flex';
 
-    // Set up the one-time click event for the confirmation button
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     confirmBtn.onclick = async () => {
         if (!stationToDelete) return;
         
+        const deletedCallsign = stationToDelete; // Capture callsign before resetting
+        
         try {
-            const response = await fetch(`/api/delete-station/${stationToDelete}`, { method: 'DELETE' });
+            const response = await fetch(`/api/delete-station/${deletedCallsign}`, { method: 'DELETE' });
             if (response.ok) {
                 closeDeleteModal();
-                showSuccess("Deleted", `${stationToDelete} has been removed.`);
+                showSuccess("Deleted", `${deletedCallsign} has been removed.`); // Fixed null issue
             } else {
                 const err = await response.json();
                 alert(err.error || "You do not have permission to delete this.");
             }
-        } catch (e) {
-            console.error("Network error during deletion:", e);
-        }
+        } catch (e) { console.error("Network error during deletion:", e); }
     };
 }
 
@@ -101,7 +100,7 @@ channel.bind('delete-data', (data) => {
         delete markers[callsign];
         delete trackPaths[callsign];
         const tbody = document.getElementById('history-body');
-        const targetRow = Array.from(tbody.rows).find(r => r.cells[0].innerText === callsign);
+        const targetRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
         if (targetRow) targetRow.remove();
     }
 });
@@ -125,7 +124,7 @@ function updateRecentActivity(callsign, lat, lng, time) {
     }
 
     targetRow.classList.remove('row-update');
-    void targetRow.offsetWidth; 
+    void targetRow.offsetWidth; // Force reflow
     targetRow.classList.add('row-update');
 }
 
@@ -176,6 +175,7 @@ async function submitRegistration() {
     } catch (e) { showSuccess("Error", "Server unreachable."); }
 }
 
+// 7. Persistent UI Logic
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     const pos = [parseFloat(lat), parseFloat(lng)];
