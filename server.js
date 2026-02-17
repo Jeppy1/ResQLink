@@ -29,11 +29,12 @@ app.use(session({
 }));
 
 // --- 2. DUAL MONGODB CONFIGURATION ---
-const mongoURI = process.env.MONGODB_URL; // Base URL from Railway
+const uriResQLink = process.env.MONGODB_URL_RESQLINK;
+const uriTest = process.env.MONGODB_URL_TEST;
 
-// Create two separate connection objects
-const connResQLink = mongoose.createConnection(mongoURI.replace(/\/([^\/\?]+)(\?|$)/, '/resqlink$2'));
-const connTest = mongoose.createConnection(mongoURI.replace(/\/([^\/\?]+)(\?|$)/, '/test$2'));
+// Use separate connection objects
+const connResQLink = mongoose.createConnection(uriResQLink, { serverSelectionTimeoutMS: 5000 });
+const connTest = mongoose.createConnection(uriTest, { serverSelectionTimeoutMS: 5000 });
 
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
@@ -47,15 +48,15 @@ const trackerSchema = new mongoose.Schema({
     emergencyNum: String,  
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
-}, { bufferCommands: true });
+});
 
-// Bind the same schema to both connections
 const TrackerResQLink = connResQLink.model('Tracker', trackerSchema);
 const TrackerTest = connTest.model('Tracker', trackerSchema);
 
-// Connection Logging
-connResQLink.on('connected', () => console.log("SUCCESS: Connected to 'resqlink' DB"));
-connTest.on('connected', () => console.log("SUCCESS: Connected to 'test' DB"));
+// Connection logging to help you debug
+connResQLink.on('connected', () => console.log("Connected to ResQLink DB"));
+connTest.on('connected', () => console.log("Connected to Test DB"));
+connResQLink.on('error', (err) => console.error("ResQLink DB Error:", err));
 
 // --- 3. PUSHER INITIALIZATION --- 
 const pusher = new Pusher({
