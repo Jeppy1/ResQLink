@@ -11,29 +11,34 @@ var trackPaths = {};
 var trackCoords = {};
 
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
+// --- 3. UPDATED SYMBOL MAPPING ---
 const symbolNames = {
-    '/A': 'Ambulance (Tactical A)', '/W': 'Weather Station (Tactical W)',
-    '//': 'Red Dot / Emergency Point', '/ ': 'Small Circle / Generic Station',
-    '/0': 'Home Station (Tactical 0)', '/1': 'Digital Station (Tactical 1)',
-    '/_': 'Weather Station', '\\_': 'Weather Station (Alt)',
-    '/)': 'Fire Station', '/$': 'Phone Station', '/y': 'Yacht/Sailboat',
-    '/I': 'Island Station', '/<': 'Motorcycle', '/>': 'Car',
-    '/[': 'Human/Person', '/-': 'House/HQ', '/a': 'Ambulance',
-    '/f': 'Fire Truck', '/r': 'iGate Receiver', '/v': 'Van',
-    '/u': 'Truck', '/X': 'Helicopter', '/s': 'Ship/Boat',
-    '/b': 'Bicycle', '/H': 'Hospital'
+    '/[': 'Human/Personnel',
+    '/r': 'iGate Receiver',
+    '/1': 'Digital Station',
+    '/>': 'Vehicle/Car',
+    '/-': 'House/HQ',
+    '/A': 'Ambulance',
+    '/f': 'Fire Truck',
+    '/u': 'Truck',
+    '/v': 'Van'
 };
 
 function getSymbolIcon(symbol) {
     const iconMapping = {
-        '/A': 'ambulance.png', '/W': 'weather.png', '//': 'default-pin.png', 
-        '/ ': 'default-pin.png', '/0': 'house.png', '/1': 'station.png',
-        '/_': 'weather.png', '\\_': 'weather.png', '/)': 'fire_station.png',
-        '/<': 'motorcycle.png', '/>': 'car.png', '/[': 'human.png',
-        '/-': 'house.png', '/a': 'ambulance.png', '/f': 'fire_truck.png',
-        '/r': 'igate.png', '/v': 'van.png', '/u': 'truck.png', '/X': 'helo.png'
+        '/[': 'human.png',      // Correct code for Human
+        '/r': 'igate.png',      // Correct code for iGate
+        '/1': 'station.png',    // Digital/Tactical 1
+        '/>': 'car.png',
+        '/-': 'house.png',
+        '/a': 'ambulance.png',
+        '/f': 'fire_truck.png',
+        '/u': 'truck.png'
     };
+
+    // Forces exact match for the 2-character symbol
     const fileName = iconMapping[symbol] || 'default-pin.png';
+    
     return L.icon({
         iconUrl: `icons/${fileName}`,
         iconSize: [32, 32],
