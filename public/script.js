@@ -148,36 +148,71 @@ async function submitRegistration() {
 
 // 7. Update UI
 async function updateMapAndUI(data) {
-    const { callsign, lat, lng, symbol, ownerName, contactNum } = data;
-    const pos = [parseFloat(lat), parseFloat(lng)];
-    if (isNaN(pos[0])) return;
+    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum } = data;
+    const numLat = parseFloat(lat);
+    const numLng = parseFloat(lng);
+    const pos = [numLat, numLng];
 
-    // Pathing
+    if (isNaN(numLat) || isNaN(numLng)) return;
+
+    // --- Pathing Logic ---
     if (!trackCoords[callsign]) trackCoords[callsign] = [];
     trackCoords[callsign].push(pos);
     if (trackCoords[callsign].length > 5) trackCoords[callsign].shift();
 
-    if (trackPaths[callsign]) trackPaths[callsign].setLatLngs(trackCoords[callsign]);
-    else trackPaths[callsign] = L.polyline(trackCoords[callsign], {color: '#007bff', dashArray: '5, 10'}).addTo(map);
+    if (trackPaths[callsign]) {
+        trackPaths[callsign].setLatLngs(trackCoords[callsign]);
+    } else {
+        trackPaths[callsign] = L.polyline(trackCoords[callsign], {
+            color: '#007bff',
+            weight: 3,
+            opacity: 0.6,
+            dashArray: '5, 10'
+        }).addTo(map);
+    }
 
-    const time = new Date().toLocaleTimeString();
-    updateRecentActivity(callsign, time);
+    const address = await getAddress(numLat, numLng);
+    const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
+    const timeStr = new Date().toLocaleTimeString();
 
+    updateRecentActivity(callsign, timeStr);
+
+    const customIcon = getSymbolIcon(symbol);
+
+    // --- RESTORED POPUP CONTENT ---
     const popupContent = `
-        <div style="min-width: 200px;">
-            <h4 style="margin:0; color:#007bff;">${callsign}</h4>
-            <p style="font-size: 12px;"><b>Owner:</b> ${ownerName || 'N/A'}</p>
+        <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
+            <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
+            
+            <div style="font-size: 13px; margin-bottom: 8px;">
+                <b><i class="fa-solid fa-user"></i> Owner:</b> ${ownerName || 'N/A'}<br>
+                <b><i class="fa-solid fa-phone"></i> Contact:</b> ${contactNum || 'N/A'}<br>
+                <b><i class="fa-solid fa-hospital-user"></i> Emergency:</b> ${emergencyName || 'N/A'}<br>
+                <b><i class="fa-solid fa-phone-flip"></i> Emergency #:</b> ${emergencyNum || 'N/A'}
+            </div>
+
+            <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">
+                <i class="fa-solid fa-location-dot"></i> ${address}
+            </div>
+
+            <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
+                <b>Type:</b> ${typeName}<br>
+                <b>🕒 Last Seen:</b> ${timeStr}
+            </div>
+
             <button onclick="openConfirmModal('${callsign}')" 
-                    style="width:100%; background:#ef4444; color:white; border:none; padding:5px; cursor:pointer; border-radius:4px;">
-                Clear Path
+                    style="width: 100%; background: #ef4444; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s;">
+                <i class="fa-solid fa-eraser"></i> Clear Path
             </button>
         </div>
     `;
 
-    if (markers[callsign]) markers[callsign].setLatLng(pos).setPopupContent(popupContent);
-    else markers[callsign] = L.marker(pos, { icon: getSymbolIcon(symbol) }).addTo(map).bindPopup(popupContent);
+    if (markers[callsign]) {
+        markers[callsign].setLatLng(pos).setIcon(customIcon).setPopupContent(popupContent);
+    } else {
+        markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
+    }
 }
-
 window.onload = async () => {
     const res = await fetch('/api/positions');
     if (res.status === 401) window.location.href = '/login.html';
