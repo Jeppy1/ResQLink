@@ -7,8 +7,8 @@ var map = L.map('map').setView([13.5857, 124.2160], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 var markers = {};
-var trackPaths = {};
-var trackCoords = {};
+var trackPaths = {}; // Stores the Leaflet polyline objects
+var trackCoords = {}; // Stores the last 5 coordinates for each callsign
 
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
 const symbolNames = {
@@ -39,31 +39,29 @@ function getSymbolIcon(symbol) {
         iconSize: [32, 32],
         iconAnchor: [16, 16],
         popupAnchor: [0, -15],
-        symbolCode: symbol // Store symbol for registration reference
+        symbolCode: symbol 
     });
 }
 
-// --- 4. NEW: CONNECTION STATUS LISTENER ---
+// --- 4. CONNECTION STATUS LISTENER ---
 channel.bind('connection-status', function(data) {
     const statusText = document.querySelector('.status-box span');
     const statusDot = document.getElementById('status-dot');
     
     if(data.status === "Online") {
         statusText.innerText = "Connected to APRS-IS";
-        statusDot.style.color = "#22c55e"; // Success Green
+        statusDot.style.color = "#22c55e"; 
     }
 });
 
-// --- 5. NEW: RECENT ACTIVITY UPDATER ---
+// --- 5. RECENT ACTIVITY UPDATER ---
 function updateRecentActivity(callsign, time) {
     const table = document.querySelector('.activity-table'); 
     if (!table) return;
 
-    // Insert a new row at the top (under the header)
     const row = table.insertRow(1); 
     row.innerHTML = `<td>${callsign}</td><td>${time}</td>`;
 
-    // Limit to the most recent 5 entries to keep side panel clean
     if (table.rows.length > 6) {
         table.deleteRow(6);
     }
@@ -106,8 +104,6 @@ function closeModal() {
 // --- SUBMIT REGISTRATION ---
 async function submitRegistration() {
     const callsign = document.getElementById('modalCallsignDisplay').innerText;
-    
-    // Grab the existing symbol if the marker already exists
     const existingSymbol = markers[callsign] ? markers[callsign].options.icon.options.symbolCode : '/['; 
 
     const data = {
@@ -153,11 +149,31 @@ async function updateMapAndUI(data) {
 
     if (isNaN(numLat) || isNaN(numLng)) return;
 
+    // --- Pathing Logic ---
+    if (!trackCoords[callsign]) trackCoords[callsign] = [];
+    trackCoords[callsign].push(pos);
+
+    // Keep only last 5 positions for tracking
+    if (trackCoords[callsign].length > 5) {
+        trackCoords[callsign].shift();
+    }
+
+    // Draw Polyline path
+    if (trackPaths[callsign]) {
+        trackPaths[callsign].setLatLngs(trackCoords[callsign]);
+    } else {
+        trackPaths[callsign] = L.polyline(trackCoords[callsign], {
+            color: '#007bff',
+            weight: 3,
+            opacity: 0.6,
+            dashArray: '5, 10' // Visual "tracking" style
+        }).addTo(map);
+    }
+
     const address = await getAddress(numLat, numLng);
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const timeStr = new Date().toLocaleTimeString();
 
-    // Trigger sidebar activity update
     updateRecentActivity(callsign, timeStr);
 
     const customIcon = getSymbolIcon(symbol);
