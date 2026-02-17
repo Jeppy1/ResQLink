@@ -11,43 +11,65 @@ var trackPaths = {};
 var trackCoords = {};
 
 // --- 3. COMPREHENSIVE SYMBOL MAPPING ---
-// --- 3. UPDATED SYMBOL MAPPING ---
 const symbolNames = {
-    '/[': 'Digital Station',
-    '/r': 'House/HQ',
-    '/1': 'Human/Personnel',
+    '/[': 'Human/Personnel',
+    '/r': 'iGate Receiver',
+    '/1': 'Digital Station',
     '/>': 'Vehicle/Car',
-    '/-': 'iGate',
+    '/-': 'House/HQ',
     '/A': 'Ambulance',
-    '/f': 'Fire Truck',
-    '/u': 'Truck',
-    '/v': 'Van'
+    '/W': 'Weather Station',
+    '//': 'Emergency Point'
 };
 
 function getSymbolIcon(symbol) {
     const iconMapping = {
-        '/[': 'station.png',      // Correct code for Human
-        '/r': 'house.png',      // Correct code for iGate
-        '/1': 'human.png',    // Digital/Tactical 1
+        '/[': 'human.png',
+        '/r': 'igate.png',
+        '/1': 'station.png',
         '/>': 'car.png',
-        '/-': 'igate.png',
+        '/-': 'house.png',
         '/a': 'ambulance.png',
         '/f': 'fire_truck.png',
         '/u': 'truck.png'
     };
-
-    // Forces exact match for the 2-character symbol
     const fileName = iconMapping[symbol] || 'default-pin.png';
-    
     return L.icon({
         iconUrl: `icons/${fileName}`,
         iconSize: [32, 32],
         iconAnchor: [16, 16],
-        popupAnchor: [0, -15]
+        popupAnchor: [0, -15],
+        symbolCode: symbol // Store symbol for registration reference
     });
 }
 
-// 4. Reverse Geocoding
+// --- 4. NEW: CONNECTION STATUS LISTENER ---
+channel.bind('connection-status', function(data) {
+    const statusText = document.querySelector('.status-box span');
+    const statusDot = document.getElementById('status-dot');
+    
+    if(data.status === "Online") {
+        statusText.innerText = "Connected to APRS-IS";
+        statusDot.style.color = "#22c55e"; // Success Green
+    }
+});
+
+// --- 5. NEW: RECENT ACTIVITY UPDATER ---
+function updateRecentActivity(callsign, time) {
+    const table = document.querySelector('.activity-table'); 
+    if (!table) return;
+
+    // Insert a new row at the top (under the header)
+    const row = table.insertRow(1); 
+    row.innerHTML = `<td>${callsign}</td><td>${time}</td>`;
+
+    // Limit to the most recent 5 entries to keep side panel clean
+    if (table.rows.length > 6) {
+        table.deleteRow(6);
+    }
+}
+
+// 6. Reverse Geocoding
 async function getAddress(lat, lng) {
     try {
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
@@ -57,10 +79,10 @@ async function getAddress(lat, lng) {
     } catch (e) { return "Detecting Location..."; }
 }
 
-// 5. Search/Pan Function
+// 7. Search/Pan Function
 function trackCallsign() {
     const searchInput = document.getElementById('callSign').value.toUpperCase().trim();
-    if (markers[searchInput]) {
+    if (searchInput && markers[searchInput]) {
         map.setView(markers[searchInput].getLatLng(), 15, { animate: true });
         markers[searchInput].openPopup();
     } else { alert("Callsign not found."); }
@@ -74,7 +96,7 @@ function registerStation() {
     if (!callsign) return alert("Please enter a callsign first.");
     
     document.getElementById('modalCallsignDisplay').innerText = callsign;
-    document.getElementById('regModal').style.display = 'flex'; // Show mini window
+    document.getElementById('regModal').style.display = 'flex'; 
 }
 
 function closeModal() {
@@ -85,7 +107,7 @@ function closeModal() {
 async function submitRegistration() {
     const callsign = document.getElementById('modalCallsignDisplay').innerText;
     
-    // Grab the existing symbol if the marker already exists on the map
+    // Grab the existing symbol if the marker already exists
     const existingSymbol = markers[callsign] ? markers[callsign].options.icon.options.symbolCode : '/['; 
 
     const data = {
@@ -96,10 +118,9 @@ async function submitRegistration() {
         contactNum: document.getElementById('contactNum').value,
         emergencyName: document.getElementById('emergencyName').value,
         emergencyNum: document.getElementById('emergencyNum').value,
-        symbol: existingSymbol, // Use the real symbol instead of hardcoded '/-'
+        symbol: existingSymbol, 
         details: "Registered Responder"
     };
-    // ... send to fetch
 
     if (!data.ownerName || !data.contactNum) return alert("Owner and Contact are required.");
 
@@ -113,7 +134,7 @@ async function submitRegistration() {
         if (response.ok) {
             alert(`Station ${callsign} registered successfully!`);
             closeModal();
-            location.reload(); // Refresh to fetch new registered data
+            location.reload(); 
         } else if (response.status === 401) {
             window.location.href = '/login.html';
         } else {
@@ -123,9 +144,9 @@ async function submitRegistration() {
     } catch (e) { console.error("Registration failed:", e); }
 }
 
-// 6. MAIN UPDATE LOGIC
+// 8. MAIN UPDATE LOGIC
 async function updateMapAndUI(data) {
-    const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = data;
+    const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum } = data;
     const numLat = parseFloat(lat);
     const numLng = parseFloat(lng);
     const pos = [numLat, numLng];
@@ -136,10 +157,9 @@ async function updateMapAndUI(data) {
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const timeStr = new Date().toLocaleTimeString();
 
-    // --- Pathing & Sidebar Updates (Omitted for brevity, keep your original logic) ---
-    // ... (Your original trackCoords and Sidebar code remains the same) ...
+    // Trigger sidebar activity update
+    updateRecentActivity(callsign, timeStr);
 
-    // --- Marker & Popup Update with New Details ---
     const customIcon = getSymbolIcon(symbol);
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 220px;">
@@ -168,14 +188,12 @@ async function updateMapAndUI(data) {
 
 // Load historical data
 window.onload = async () => {
-    if (map) {
-        try {
-            const response = await fetch('/api/positions');
-            if (response.status === 401) { window.location.href = '/login.html'; return; }
-            const history = await response.json();
-            history.forEach(data => { updateMapAndUI(data); });
-        } catch (err) { console.error("Error loading historical data:", err); }
-    }
+    try {
+        const response = await fetch('/api/positions');
+        if (response.status === 401) { window.location.href = '/login.html'; return; }
+        const history = await response.json();
+        history.forEach(data => { updateMapAndUI(data); });
+    } catch (err) { console.error("Error loading historical data:", err); }
 };
 
 channel.bind('new-data', updateMapAndUI);
