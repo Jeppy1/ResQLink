@@ -10,7 +10,7 @@ var markers = {};
 var trackPaths = {}; 
 var trackCoords = {}; 
 let pendingClearCallsign = null;
-let userRole = ''; // Global variable to store the role
+let userRole = ''; 
 
 // --- 3. SYMBOL MAPPING ---
 const symbolNames = { 
@@ -52,7 +52,6 @@ function executeClear() {
     }
 }
 
-// --- ADMIN DELETE FUNCTION ---
 async function deleteStation(callsign) {
     if (!confirm(`Permanently remove ${callsign} from the database?`)) return;
     try {
@@ -74,7 +73,6 @@ channel.bind('connection-status', (data) => {
     }
 });
 
-// Listener for real-time deletion
 channel.bind('delete-data', (data) => {
     const { callsign } = data;
     if (markers[callsign]) {
@@ -88,19 +86,29 @@ channel.bind('delete-data', (data) => {
     }
 });
 
+// UPDATED: Added Row Highlighting Animation
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
+    
     let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
+    let targetRow;
+
     if (existingRow) {
         existingRow.cells[1].innerHTML = `<span style="color: #666; font-size: 11px;">${lat}</span>`;
         existingRow.cells[2].innerHTML = `<span style="color: #666; font-size: 11px;">${lng}</span>`;
         existingRow.cells[3].innerText = time;
         tbody.prepend(existingRow);
+        targetRow = existingRow;
     } else {
-        const row = tbody.insertRow(0);
-        row.innerHTML = `<td>${callsign}</td><td><span style="color: #666; font-size: 11px;">${lat}</span></td><td><span style="color: #666; font-size: 11px;">${lng}</span></td><td>${time}</td>`;
+        targetRow = tbody.insertRow(0);
+        targetRow.innerHTML = `<td>${callsign}</td><td><span style="color: #666; font-size: 11px;">${lat}</span></td><td><span style="color: #666; font-size: 11px;">${lng}</span></td><td>${time}</td>`;
     }
+
+    // Trigger CSS animation
+    targetRow.classList.remove('row-update');
+    void targetRow.offsetWidth; // Force reflow
+    targetRow.classList.add('row-update');
 }
 
 async function getAddress(lat, lng) {
@@ -116,7 +124,10 @@ function trackCallsign() {
     if (markers[input]) { map.setView(markers[input].getLatLng(), 15, { animate: true }); markers[input].openPopup(); }
 }
 
-function handleLogout() { window.location.href = '/api/logout'; }
+function handleLogout() { 
+    localStorage.removeItem('userRole'); 
+    window.location.href = '/api/logout'; 
+}
 
 function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
@@ -153,6 +164,8 @@ async function updateMapAndUI(data) {
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
+    // Logic for individual tracking fields removed as they were deleted from index.html
+
     trackCoords[callsign] = path || [];
     if (trackPaths[callsign]) {
         trackPaths[callsign].setLatLngs(trackCoords[callsign]);
@@ -167,7 +180,6 @@ async function updateMapAndUI(data) {
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
 
-    // Only show delete button if user is Admin
     const deleteBtn = userRole === 'admin' ? `
         <button onclick="deleteStation('${callsign}')" 
                 style="flex: 1; background: #111827; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
@@ -203,13 +215,10 @@ async function updateMapAndUI(data) {
     }
 }
 
-// Inside window.onload in script.js
 window.onload = async () => {
     try {
-        // 1. Get role from local storage
         userRole = localStorage.getItem('userRole') || 'viewer'; 
         
-        // 2. Update the Sidebar Label
         const roleText = document.getElementById('role-text');
         const roleBadge = document.getElementById('role-badge');
         
@@ -218,7 +227,6 @@ window.onload = async () => {
             roleBadge.classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
 
-        // 3. Load database data
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
