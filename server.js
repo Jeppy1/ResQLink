@@ -32,7 +32,6 @@ app.use(session({
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 const uriTest = process.env.MONGODB_URL_TEST;
 
-// Use separate connection objects with timeout safety
 const connResQLink = mongoose.createConnection(uriResQLink, { serverSelectionTimeoutMS: 5000 });
 const connTest = mongoose.createConnection(uriTest, { serverSelectionTimeoutMS: 5000 });
 
@@ -41,6 +40,8 @@ const trackerSchema = new mongoose.Schema({
     lat: String,
     lng: String,
     symbol: String,
+    // NEW: Path array to store last 5 coordinates
+    path: { type: [[Number]], default: [] },
     details: String,
     ownerName: String,
     contactNum: String,
@@ -53,11 +54,8 @@ const trackerSchema = new mongoose.Schema({
 const TrackerResQLink = connResQLink.model('Tracker', trackerSchema);
 const TrackerTest = connTest.model('Tracker', trackerSchema);
 
-// Enhanced Logging for dual connections
 connResQLink.on('connected', () => console.log("Connected to ResQLink DB"));
 connTest.on('connected', () => console.log("Connected to Test DB"));
-connResQLink.on('error', (err) => console.error("ResQLink DB Error:", err));
-connTest.on('error', (err) => console.error("Test DB Error:", err));
 
 // --- 3. PUSHER INITIALIZATION --- 
 const pusher = new Pusher({
@@ -112,7 +110,6 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
         const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
         const formattedCallsign = callsign.toUpperCase().trim();
 
-        // Check DB for existing symbol before overwriting
         const existingStation = await TrackerResQLink.findOne({ callsign: formattedCallsign });
         const finalSymbol = symbol || (existingStation ? existingStation.symbol : "/-");
 
@@ -130,11 +127,11 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             lastSeen: new Date()
         };
 
-        await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
+        const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
         await TrackerTest.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true });
 
-        pusher.trigger("aprs-channel", "new-data", updateData);
-        res.status(200).json({ message: "Station Registered in both DBs!", data: updateData });
+        pusher.trigger("aprs-channel", "new-data", newStation);
+        res.status(200).json({ message: "Station Registered in both DBs!", data: newStation });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -164,15 +161,14 @@ client.on('data', async (data) => {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
+        const newCoords = [parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4))];
 
-        // 1. Find existing registration
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         
         if (existing && existing.isRegistered) {
-            // 2. Logic to prevent symbol reverting to house (/-)
-            let finalSymbol = existing.symbol || "/-"; // Default to what we have in DB
+            let finalSymbol = existing.symbol || "/-"; 
             if (symbolMatch) {
-                finalSymbol = symbolMatch[1] + symbolMatch[2]; // Use packet symbol if valid
+                finalSymbol = symbolMatch[1] + symbolMatch[2]; 
             }
 
             const updateData = {
@@ -182,16 +178,27 @@ client.on('data', async (data) => {
                 lastSeen: new Date()
             };
             
-            await TrackerResQLink.findOneAndUpdate({ callsign: callsign }, updateData);
-            await TrackerTest.findOneAndUpdate({ callsign: callsign }, updateData);
+            // Use $push with $slice to keep only the last 5 points in history
+            const updated = await TrackerResQLink.findOneAndUpdate(
+                { callsign: callsign }, 
+                { 
+                    ...updateData,
+                    $push: { path: { $each: [newCoords], $slice: -5 } } 
+                },
+                { new: true }
+            );
+            
+            await TrackerTest.findOneAndUpdate(
+                { callsign: callsign }, 
+                { 
+                    ...updateData,
+                    $push: { path: { $each: [newCoords], $slice: -5 } } 
+                }
+            );
             
             pusher.trigger("aprs-channel", "new-data", { 
-                ...updateData, 
-                callsign,
-                ownerName: existing.ownerName,
-                contactNum: existing.contactNum,
-                emergencyName: existing.emergencyName,
-                emergencyNum: existing.emergencyNum
+                ...updated.toObject(),
+                callsign
             });
         }
     }
