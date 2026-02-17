@@ -1,6 +1,5 @@
 // --- 0. INITIALIZATION ---
 require('dotenv').config();
-
 const express = require('express');
 const http = require('http');
 const net = require('net');
@@ -11,21 +10,15 @@ const session = require('express-session');
 
 const app = express();
 const server = http.createServer(app);
-
 app.use(express.json()); 
 
 // --- 1. SESSION & AUTHENTICATION ---
 app.set('trust proxy', 1); 
-
 app.use(session({
     secret: process.env.SESSION_SECRET || 'resqlink-secure-key-2026',
     resave: false,
     saveUninitialized: false, 
-    cookie: { 
-        secure: true,        
-        sameSite: 'none',    
-        maxAge: 1000 * 60 * 60 * 24 
-    }
+    cookie: { secure: true, sameSite: 'none', maxAge: 1000 * 60 * 60 * 24 }
 }));
 
 // --- 2. DUAL MONGODB CONFIGURATION ---
@@ -37,16 +30,10 @@ const connTest = mongoose.createConnection(uriTest, { serverSelectionTimeoutMS: 
 
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
-    lat: String,
-    lng: String,
-    symbol: String,
-    // NEW: Path array to store last 5 coordinates
-    path: { type: [[Number]], default: [] },
-    details: String,
-    ownerName: String,
-    contactNum: String,
-    emergencyName: String, 
-    emergencyNum: String,  
+    lat: String, lng: String, symbol: String,
+    path: { type: [[Number]], default: [] }, // Persists last 5 locations
+    details: String, ownerName: String, contactNum: String,
+    emergencyName: String, emergencyNum: String,  
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 });
@@ -66,7 +53,7 @@ const pusher = new Pusher({
     useTLS: true
 });
 
-// --- 4. SECURE ROUTING LOGIC ---
+// --- 4. SECURE ROUTING & PROXIES ---
 app.get('/', (req, res) => {
     if (req.session && req.session.user) {
         res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -80,6 +67,18 @@ function isAuthenticated(req, res, next) {
     res.status(401).json({ error: "Unauthorized" }); 
 }
 
+// Bypasses Nominatim CORS block by proxying request through server
+app.get('/api/get-address', async (req, res) => {
+    const { lat, lng } = req.query;
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+            headers: { 'User-Agent': 'ResQLink-Disaster-App' }
+        });
+        const data = await response.json();
+        res.json({ address: data.display_name.split(',').slice(0, 3).join(',') });
+    } catch (err) { res.status(500).json({ error: "Geocoding failed" }); }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- API ENDPOINTS ---
@@ -87,63 +86,44 @@ app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     if (username === 'admin' && password === 'resqlink2026') {
         req.session.user = username;
-        req.session.save((err) => {
-            if (err) return res.status(500).json({ error: "Session save failed" });
-            return res.json({ success: true });
-        });
-    } else {
-        res.status(401).json({ error: "Invalid Credentials" });
-    }
+        req.session.save(() => res.json({ success: true }));
+    } else { res.status(401).json({ error: "Invalid Credentials" }); }
 });
 
 app.get('/api/positions', isAuthenticated, async (req, res) => {
     try {
         const positions = await TrackerResQLink.find({ isRegistered: true });
-        res.json(positions);
-    } catch (err) {
-        res.status(500).send(err);
-    }
+        res.json(Array.isArray(positions) ? positions : []); // Safety check
+    } catch (err) { res.status(500).json([]); }
 });
 
 app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
         const formattedCallsign = callsign.toUpperCase().trim();
-
         const existingStation = await TrackerResQLink.findOne({ callsign: formattedCallsign });
         const finalSymbol = symbol || (existingStation ? existingStation.symbol : "/-");
 
         const updateData = {
-            callsign: formattedCallsign,
-            lat: lat.toString(),
-            lng: lng.toString(),
-            symbol: finalSymbol,
-            details: details || "Registered Responder",
-            ownerName,
-            contactNum,
-            emergencyName,
-            emergencyNum,
-            isRegistered: true,
-            lastSeen: new Date()
+            callsign: formattedCallsign, lat: lat.toString(), lng: lng.toString(),
+            symbol: finalSymbol, details: details || "Registered Responder",
+            ownerName, contactNum, emergencyName, emergencyNum,
+            isRegistered: true, lastSeen: new Date()
         };
 
         const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
         await TrackerTest.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true });
 
         pusher.trigger("aprs-channel", "new-data", newStation);
-        res.status(200).json({ message: "Station Registered in both DBs!", data: newStation });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.status(200).json({ message: "Station Registered!", data: newStation });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // --- 5. APRS-IS & DATA PROCESSING ---
 const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "asia.aprs2.net", () => {
-        client.write("user GUEST pass -1 vers ResQLink 1.0\n");
-        client.write("#filter p/DU/DW/DV/DY/DZ\n");
-        console.log("SUCCESS: APRS-IS Network Connected");
+        client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
         pusher.trigger("aprs-channel", "connection-status", { status: "Online" });
     });
 }
@@ -151,7 +131,6 @@ connectAPRS();
 
 client.on('data', async (data) => {
     if (connResQLink.readyState !== 1 || connTest.readyState !== 1) return;
-
     const rawPacket = data.toString();
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -164,42 +143,20 @@ client.on('data', async (data) => {
         const newCoords = [parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4))];
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
-        
         if (existing && existing.isRegistered) {
             let finalSymbol = existing.symbol || "/-"; 
-            if (symbolMatch) {
-                finalSymbol = symbolMatch[1] + symbolMatch[2]; 
-            }
+            if (symbolMatch) finalSymbol = symbolMatch[1] + symbolMatch[2];
 
-            const updateData = {
-                lat: lat.toFixed(4),
-                lng: lng.toFixed(4),
-                symbol: finalSymbol, 
-                lastSeen: new Date()
-            };
-            
-            // Use $push with $slice to keep only the last 5 points in history
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
-                { 
-                    ...updateData,
-                    $push: { path: { $each: [newCoords], $slice: -5 } } 
-                },
+                { lat: lat.toFixed(4), lng: lng.toFixed(4), symbol: finalSymbol, lastSeen: new Date(),
+                  $push: { path: { $each: [newCoords], $slice: -5 } } }, // Persistent history
                 { new: true }
             );
+            await TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4), symbol: finalSymbol,
+                  $push: { path: { $each: [newCoords], $slice: -5 } } });
             
-            await TrackerTest.findOneAndUpdate(
-                { callsign: callsign }, 
-                { 
-                    ...updateData,
-                    $push: { path: { $each: [newCoords], $slice: -5 } } 
-                }
-            );
-            
-            pusher.trigger("aprs-channel", "new-data", { 
-                ...updated.toObject(),
-                callsign
-            });
+            pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), callsign });
         }
     }
 });
