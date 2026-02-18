@@ -2,7 +2,7 @@
 const pusher = new Pusher('899f970a7cf34c9a73a9', { cluster: 'ap1' });
 const channel = pusher.subscribe('aprs-channel');
 
-console.log("--- SCRIPT VERSION 3.0 LOADED ---");
+console.log("--- SCRIPT VERSION 4.0: DETECTIVE MODE ---");
 
 // 2. Map & State Setup
 var map = L.map('map').setView([13.5857, 124.2160], 10);
@@ -62,49 +62,21 @@ function closeDeleteModal() {
     stationToDelete = null;
 }
 
-async function deleteStation(callsign) {
-    stationToDelete = callsign;
-    document.getElementById('deleteCallsignDisplay').innerText = callsign;
-    document.getElementById('deleteConfirmModal').style.display = 'flex';
-    const confirmBtn = document.getElementById('confirmDeleteBtn');
-    confirmBtn.onclick = async () => {
-        if (!stationToDelete) return;
-        const deletedCallsign = stationToDelete; 
-        document.body.classList.add('loading-process');
-        try {
-            const response = await fetch(`/api/delete-station/${deletedCallsign}`, { method: 'DELETE' });
-            if (response.ok) {
-                closeDeleteModal();
-                showSuccess("Deleted", `${deletedCallsign} has been removed.`); 
-            } else {
-                const err = await response.json();
-                alert(err.error || "Permission Denied.");
-            }
-        } catch (e) { console.error("Network error:", e); }
-        finally { document.body.classList.remove('loading-process'); }
-    };
-}
-
-function executeClear() {
-    if (pendingClearCallsign) {
-        if (trackPaths[pendingClearCallsign]) map.removeLayer(trackPaths[pendingClearCallsign]);
-        delete trackPaths[pendingClearCallsign];
-        trackCoords[pendingClearCallsign] = [];
-        closeConfirmModal();
-        showSuccess("Cleared", `History for ${pendingClearCallsign} reset.`);
-    }
-}
-
 // --- REGISTERED CALLSIGNS LIST LOGIC ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
     if (!list || !data.isRegistered) return;
 
-    // DEBUGGING: Check ID and Time Source
+    // --- DETECTIVE LOGGING ---
     if (data.callsign === "DW4AMU-10") {
-        console.log("DEBUG - iGate Source ID:", data._id);
-        console.log("DEBUG - iGate Raw Time:", data.lastSeen);
+        console.log("------------------------------------------------");
+        console.log("DETECTIVE LOG: Analyzing DW4AMU-10 Source Data");
+        console.log("ID from API:", data._id);
+        console.log("Raw LastSeen from API:", data.lastSeen);
+        console.log("Parsed Date:", parseMongoDate(data.lastSeen));
+        console.log("------------------------------------------------");
     }
+    // -------------------------------------
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     
@@ -155,6 +127,39 @@ function downloadAllPaths() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+async function deleteStation(callsign) {
+    stationToDelete = callsign;
+    document.getElementById('deleteCallsignDisplay').innerText = callsign;
+    document.getElementById('deleteConfirmModal').style.display = 'flex';
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.onclick = async () => {
+        if (!stationToDelete) return;
+        const deletedCallsign = stationToDelete; 
+        document.body.classList.add('loading-process');
+        try {
+            const response = await fetch(`/api/delete-station/${deletedCallsign}`, { method: 'DELETE' });
+            if (response.ok) {
+                closeDeleteModal();
+                showSuccess("Deleted", `${deletedCallsign} has been removed.`); 
+            } else {
+                const err = await response.json();
+                alert(err.error || "Permission Denied.");
+            }
+        } catch (e) { console.error("Network error:", e); }
+        finally { document.body.classList.remove('loading-process'); }
+    };
+}
+
+function executeClear() {
+    if (pendingClearCallsign) {
+        if (trackPaths[pendingClearCallsign]) map.removeLayer(trackPaths[pendingClearCallsign]);
+        delete trackPaths[pendingClearCallsign];
+        trackCoords[pendingClearCallsign] = [];
+        closeConfirmModal();
+        showSuccess("Cleared", `History for ${pendingClearCallsign} reset.`);
+    }
 }
 
 // --- 5. DASHBOARD LISTENERS ---
@@ -276,9 +281,8 @@ async function updateMapAndUI(data) {
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     
-    // FIX: Robustly parse date for popup/activity log
+    // FIX: Use helper function to get date from DB object or string
     const dateObj = parseMongoDate(lastSeen);
-    // If valid, use DB time. If invalid/null, say "No Signal" (NEVER fallback to current time)
     const timeStr = dateObj ? dateObj.toLocaleTimeString() : "No Signal";
     
     updateRecentActivity(callsign, lat, lng, timeStr);
