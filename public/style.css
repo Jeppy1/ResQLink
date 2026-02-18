@@ -317,3 +317,23 @@ button:hover {
 .loading-process * {
     cursor: wait !important; /* Overrides all icons and buttons with a loading spinner */
 }
+
+/* --- STATUS BOX POLISH --- */
+.status-box {
+    padding: 12px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8; /* Default muted color */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#status-dot {
+    font-size: 14px;
+    text-shadow: 0 0 8px currentColor; /* Gives the dot a glowing effect */
+}
