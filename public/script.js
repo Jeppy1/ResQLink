@@ -29,30 +29,122 @@ function parseMongoDate(rawDate) {
     return isNaN(dateObj.getTime()) ? null : dateObj;
 }
 
+// --- MODAL UTILITIES ---
 function showSuccess(title, message) {
     document.getElementById('successTitle').innerText = title;
     document.getElementById('successMessage').innerText = message;
     document.getElementById('successModal').style.display = 'flex';
 }
 function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; }
+
 function openConfirmModal(callsign) {
     pendingClearCallsign = callsign;
     if (document.getElementById('confirmCallsign')) document.getElementById('confirmCallsign').innerText = callsign;
     document.getElementById('confirmModal').style.display = 'flex';
 }
 function closeConfirmModal() { document.getElementById('confirmModal').style.display = 'none'; }
+
 function closeDeleteModal() {
     document.getElementById('deleteConfirmModal').style.display = 'none';
     stationToDelete = null;
 }
 
+// --- DYNAMIC REGISTRATION LOGIC ---
+function toggleRegFields() {
+    const type = document.getElementById('stationType').value;
+    const ownerInput = document.getElementById('ownerName');
+    const contactInput = document.getElementById('contactNum');
+    const emergencyFields = document.getElementById('tracker-only-fields');
+
+    if (type === 'igate') {
+        ownerInput.placeholder = "Station Custodian (e.g. MDRRMO)";
+        contactInput.placeholder = "Hotline / Office Number";
+        emergencyFields.style.display = 'none';
+    } else {
+        ownerInput.placeholder = "Name of Owner/Responder";
+        contactInput.placeholder = "Personal Contact Number";
+        emergencyFields.style.display = 'block';
+    }
+}
+
+function registerStation() {
+    const cs = document.getElementById('callSign').value.toUpperCase().trim();
+    if (!cs) return alert("Enter callsign.");
+    if (markers[cs] && markers[cs].isRegistered) return showSuccess("Already Registered", `${cs} is in database.`);
+    
+    document.getElementById('modalCallsignDisplay').innerText = cs;
+    document.getElementById('regModal').style.display = 'flex'; 
+    toggleRegFields(); // Initialize placeholders
+}
+
+function closeModal() { document.getElementById('regModal').style.display = 'none'; }
+
+async function submitRegistration() {
+    const cs = document.getElementById('modalCallsignDisplay').innerText;
+    const type = document.getElementById('stationType').value;
+    
+    // Auto-set symbol to /r if iGate, otherwise default human
+    const symbol = (type === 'igate') ? '/r' : '/[';
+    const details = (type === 'igate') ? 'Stationary iGate' : 'Mobile Responder';
+
+    const data = {
+        callsign: cs,
+        lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857,
+        lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
+        ownerName: document.getElementById('ownerName').value,
+        contactNum: document.getElementById('contactNum').value,
+        emergencyName: (type === 'igate') ? "N/A" : document.getElementById('emergencyName').value,
+        emergencyNum: (type === 'igate') ? "N/A" : document.getElementById('emergencyNum').value,
+        symbol: symbol,
+        details: details
+    };
+
+    if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
+
+    document.body.classList.add('loading-process');
+    try {
+        const res = await fetch('/api/register-station', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(data) 
+        });
+        if (res.ok) { closeModal(); showSuccess("Success", `${cs} registered successfully.`); }
+    } catch (e) { showSuccess("Error", "Server unreachable."); }
+    finally { document.body.classList.remove('loading-process'); }
+}
+
+// --- STATION DELETION (FIXED NULL BUG) ---
+async function deleteStation(callsign) {
+    stationToDelete = callsign;
+    document.getElementById('deleteCallsignDisplay').innerText = callsign;
+    document.getElementById('deleteConfirmModal').style.display = 'flex';
+    
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    confirmBtn.onclick = null; // Prevent event stacking
+
+    confirmBtn.onclick = async () => {
+        if (!stationToDelete) return;
+        const target = stationToDelete; // Local capture to avoid 'null removed'
+
+        document.body.classList.add('loading-process');
+        try {
+            const response = await fetch(`/api/delete-station/${target}`, { method: 'DELETE' });
+            if (response.ok) { 
+                closeDeleteModal(); 
+                showSuccess("Deleted", `${target} removed.`); 
+            }
+        } catch (e) { console.error(e); }
+        finally { document.body.classList.remove('loading-process'); }
+    };
+}
+
+// --- CORE MAP LOGIC ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
     if (!list || !data.isRegistered) return;
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     const lastSeenDate = parseMongoDate(data.lastSeen);
-    // 10 minutes timeout for Online Status
     const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
 
@@ -95,46 +187,6 @@ function downloadAllPaths() {
     document.body.removeChild(link);
 }
 
-async function deleteStation(callsign) {
-    // 1. Set the global variable
-    stationToDelete = callsign;
-    
-    // 2. Update the UI text
-    document.getElementById('deleteCallsignDisplay').innerText = callsign;
-    document.getElementById('deleteConfirmModal').style.display = 'flex';
-    
-    const confirmBtn = document.getElementById('confirmDeleteBtn');
-    
-    // 3. Clear previous listeners to prevent multiple deletions at once
-    confirmBtn.onclick = null; 
-
-    confirmBtn.onclick = async () => {
-        if (!stationToDelete) return;
-        
-        // FIX: Capture the callsign in a local variable before closing the modal
-        const targetCallsign = stationToDelete; 
-
-        document.body.classList.add('loading-process');
-        try {
-            const response = await fetch(`/api/delete-station/${targetCallsign}`, { method: 'DELETE' });
-            if (response.ok) { 
-                // Close modal (which sets stationToDelete to null)
-                closeDeleteModal(); 
-                
-                // Use our local 'targetCallsign' variable so the message isn't 'null'
-                showSuccess("Deleted", `${targetCallsign} has been removed.`); 
-            } else {
-                const err = await response.json();
-                alert(err.error || "Permission Denied.");
-            }
-        } catch (e) { 
-            console.error("Network error:", e); 
-        } finally { 
-            document.body.classList.remove('loading-process'); 
-        }
-    };
-}
-
 function executeClear() {
     if (pendingClearCallsign) {
         if (trackPaths[pendingClearCallsign]) map.removeLayer(trackPaths[pendingClearCallsign]);
@@ -144,29 +196,6 @@ function executeClear() {
         showSuccess("Cleared", `History for ${pendingClearCallsign} reset.`);
     }
 }
-
-channel.bind('connection-status', (data) => {
-    if (data.status === "Online") {
-        document.getElementById('status-text').innerText = "Connected to APRS-IS";
-        document.getElementById('status-dot').style.color = "#22c55e"; 
-    } else {
-        document.getElementById('status-text').innerText = "Connection Lost";
-        document.getElementById('status-dot').style.color = "#ef4444"; 
-    }
-});
-
-channel.bind('delete-data', (data) => {
-    const { callsign } = data;
-    if (markers[callsign]) {
-        map.removeLayer(markers[callsign]);
-        if (trackPaths[callsign]) map.removeLayer(trackPaths[callsign]);
-        delete markers[callsign]; delete trackPaths[callsign];
-        const row = Array.from(document.getElementById('history-body').rows).find(r => r.cells[0].innerText === callsign);
-        if (row) row.remove();
-        const item = document.getElementById(`list-${callsign}`);
-        if (item) item.remove();
-    }
-});
 
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
@@ -200,40 +229,6 @@ function handleLogout() {
     window.location.href = '/api/logout'; 
 }
 
-function registerStation() {
-    const cs = document.getElementById('callSign').value.toUpperCase().trim();
-    if (!cs) return alert("Enter callsign.");
-    if (markers[cs] && markers[cs].isRegistered) return showSuccess("Already Registered", `${cs} is in database.`);
-    
-    const isIGate = markers[cs] && markers[cs].options.icon.options.symbolCode === '/r';
-    document.getElementById('ownerName').placeholder = isIGate ? "Name of Station Custodian" : "Name of Owner/Responder";
-    const emergencyFields = [document.getElementById('emergencyName').parentElement, document.getElementById('emergencyNum').parentElement];
-    emergencyFields.forEach(c => c.style.display = isIGate ? 'none' : 'flex');
-    
-    document.getElementById('modalCallsignDisplay').innerText = cs;
-    document.getElementById('regModal').style.display = 'flex'; 
-}
-
-function closeModal() { document.getElementById('regModal').style.display = 'none'; }
-
-async function submitRegistration() {
-    const cs = document.getElementById('modalCallsignDisplay').innerText;
-    const isIGate = markers[cs] && markers[cs].options.icon.options.symbolCode === '/r';
-    const data = {
-        callsign: cs, lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857, lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
-        ownerName: document.getElementById('ownerName').value, contactNum: document.getElementById('contactNum').value,
-        emergencyName: isIGate ? "N/A" : document.getElementById('emergencyName').value, emergencyNum: isIGate ? "N/A" : document.getElementById('emergencyNum').value,
-        symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', details: isIGate ? "Stationary iGate" : "Registered Responder"
-    };
-    if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
-    document.body.classList.add('loading-process');
-    try {
-        const res = await fetch('/api/register-station', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        if (res.ok) { closeModal(); showSuccess("Success", `${cs} registered successfully.`); }
-    } catch (e) { showSuccess("Error", "Server unreachable."); }
-    finally { document.body.classList.remove('loading-process'); }
-}
-
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     const pos = [parseFloat(lat), parseFloat(lng)];
@@ -249,8 +244,6 @@ async function updateMapAndUI(data) {
     }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
-    
-    // FIX: Parse valid DB date or show "No Signal". NEVER show "Now"
     const dateObj = parseMongoDate(lastSeen);
     const timeStr = dateObj ? dateObj.toLocaleTimeString() : "No Signal";
     
@@ -262,8 +255,7 @@ async function updateMapAndUI(data) {
     const deleteBtn = userRole === 'admin' ? `<button onclick="deleteStation('${callsign}')" style="flex:1; background:#111827; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
     const isIGate = symbol === '/r';
     const ownerLabel = isIGate ? 'Station Custodian' : 'Owner/Responder';
-    const showEmergencyInfo = !isIGate;
-    const emergencySection = showEmergencyInfo ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
+    const emergencySection = !isIGate ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
     
     const popupContent = `<div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;"><h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4><div style="font-size: 13px; margin-bottom: 8px;"><b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}<br>${emergencySection}</div><div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div><div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;"><b>Type:</b> ${typeName}<br><b>🕒 Last Seen:</b> ${timeStr}</div><div style="display: flex; gap: 5px;"><button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>${deleteBtn}</div></div>`;
 
@@ -276,6 +268,35 @@ async function updateMapAndUI(data) {
     }
 }
 
+// --- PUSHER LISTENERS ---
+channel.bind('connection-status', (data) => {
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    if (data.status === "Online") {
+        text.innerText = "Connected to APRS-IS";
+        dot.style.color = "#22c55e"; 
+    } else {
+        text.innerText = "Connection Lost";
+        dot.style.color = "#ef4444"; 
+    }
+});
+
+channel.bind('delete-data', (data) => {
+    const { callsign } = data;
+    if (markers[callsign]) {
+        map.removeLayer(markers[callsign]);
+        if (trackPaths[callsign]) map.removeLayer(trackPaths[callsign]);
+        delete markers[callsign]; delete trackPaths[callsign];
+        const row = Array.from(document.getElementById('history-body').rows).find(r => r.cells[0].innerText === callsign);
+        if (row) row.remove();
+        const item = document.getElementById(`list-${callsign}`);
+        if (item) item.remove();
+    }
+});
+
+channel.bind('new-data', updateMapAndUI);
+
+// --- WINDOW LOAD (CACHE BUSTING) ---
 window.onload = async () => {
     try {
         userRole = localStorage.getItem('userRole') || 'viewer'; 
@@ -284,9 +305,8 @@ window.onload = async () => {
             document.getElementById('role-badge').classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
         
-        // FIX: Cache Busting - Force browser to ask server for fresh data
+        // CACHE BUSTING: Force server to provide fresh data
         const res = await fetch(`/api/positions?t=${Date.now()}`);
-        
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         
         if (res.ok) {
@@ -303,7 +323,5 @@ window.onload = async () => {
             });
             history.forEach(d => updateMapAndUI(d));
         }
-    } catch (err) { console.error("Dashboard initialization failed:", err); }
+    } catch (err) { console.error("Initialization failed:", err); }
 };
-
-channel.bind('new-data', updateMapAndUI);
