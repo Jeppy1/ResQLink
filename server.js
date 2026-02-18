@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 app.use(express.json()); 
 
-// --- 1. SESSION & AUTHENTICATION ---
+// --- 1. SESSION ---
 app.set('trust proxy', 1); 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'resqlink-secure-key-2026',
@@ -21,7 +21,7 @@ app.use(session({
     cookie: { secure: true, sameSite: 'none', maxAge: 1000 * 60 * 60 * 24 }
 }));
 
-// --- 2. DATABASE CONFIGURATION ---
+// --- 2. DATABASE ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 const uriTest = process.env.MONGODB_URL_TEST;
 
@@ -62,11 +62,8 @@ function isAdmin(req, res, next) {
 }
 
 app.get('/', (req, res) => {
-    if (req.session && req.session.user) {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    } else {
-        res.sendFile(path.join(__dirname, 'public', 'login.html'));
-    }
+    if (req.session && req.session.user) res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    else res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 app.get('/api/get-address', async (req, res) => {
@@ -98,10 +95,7 @@ app.post('/api/login', (req, res) => {
 });
 
 app.get('/api/logout', (req, res) => {
-    req.session.destroy(() => {
-        res.clearCookie('connect.sid'); 
-        res.redirect('/'); 
-    });
+    req.session.destroy(() => { res.clearCookie('connect.sid'); res.redirect('/'); });
 });
 
 app.get('/api/positions', isAuthenticated, async (req, res) => {
@@ -117,9 +111,7 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
         const formattedCallsign = callsign.toUpperCase().trim();
         const existingStation = await TrackerResQLink.findOne({ callsign: formattedCallsign });
         
-        if (existingStation && existingStation.isRegistered) {
-            return res.status(400).json({ error: "Already registered." });
-        }
+        if (existingStation && existingStation.isRegistered) return res.status(400).json({ error: "Already registered." });
 
         const updateData = {
             callsign: formattedCallsign, lat: lat.toString(), lng: lng.toString(),
@@ -156,28 +148,24 @@ function connectAPRS() {
 }
 connectAPRS();
 
-// --- HELPER: Parse APRS Timestamp (@HHMMSSz) ---
+// --- STRICT TIME PARSER ---
 function extractPacketTime(rawPacket) {
-    // Regex for time format: @141132z or @141132h
     const timeMatch = rawPacket.match(/@([0-9]{6})[zh]/); 
     if (timeMatch) {
-        const rawTime = timeMatch[1]; // e.g., "141132"
+        const rawTime = timeMatch[1]; 
         const hours = parseInt(rawTime.substring(0, 2));
         const minutes = parseInt(rawTime.substring(2, 4));
         const seconds = parseInt(rawTime.substring(4, 6));
 
-        // Construct date object using Today's date + Packet Time
         const packetDate = new Date();
         packetDate.setUTCHours(hours, minutes, seconds, 0);
 
-        // If packet time is in the future (e.g. diff timezones), assume it was yesterday
         if (packetDate > new Date(Date.now() + 1000 * 60 * 15)) {
             packetDate.setDate(packetDate.getDate() - 1);
         }
         return packetDate;
     }
-    // If no timestamp in packet, fallback to Now
-    return new Date();
+    return null; // NO TIME FOUND = NULL
 }
 
 client.on('data', async (data) => {
@@ -191,31 +179,31 @@ client.on('data', async (data) => {
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
         
-        // FIX: Calculate time from packet, not system time
+        // 1. TRY TO GET TIME FROM PACKET
         const packetTime = extractPacketTime(rawPacket); 
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
             
-            // OPTIONAL: Ignore packets older than 30 mins to prevent "ghosting"
-            const ageInMinutes = (new Date() - packetTime) / 60000;
-            if (ageInMinutes > 30) {
-                console.log(`[IGNORED] Old packet for ${callsign}: ${packetTime.toLocaleTimeString()}`);
-                return; 
-            }
+            // 2. PREPARE UPDATE (Coordinate only first)
+            const updateFields = {
+                lat: lat.toFixed(4), 
+                lng: lng.toFixed(4),
+                $push: { path: { $each: [[parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4))]], $slice: -20 } } 
+            };
+
+            // 3. ONLY UPDATE TIME IF IT EXISTS IN PACKET
+            if (packetTime) {
+                updateFields.lastSeen = packetTime; // Sync with packet time
+            } 
+            // Else: We DO NOT add lastSeen to updateFields. The old DB time stays.
 
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
-                { 
-                    lat: lat.toFixed(4), 
-                    lng: lng.toFixed(4), 
-                    lastSeen: packetTime, // Use Packet Time!
-                    $push: { path: { $each: [[parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4))]], $slice: -20 } } 
-                },
+                updateFields,
                 { new: true }
             );
 
-            // Fire-and-forget update to Test DB
             TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4) }).exec();
             
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), callsign });
