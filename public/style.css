@@ -216,22 +216,29 @@ button:hover {
     box-sizing: border-box;
 }
 
-/* CUSTOM DROPDOWN ARROW */
+/* CUSTOM DROPDOWN ARROW & HOVER */
 .input-field select {
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    /* Improved SVG Arrow Down indicator for better visibility */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
-    background-position: right 15px center;
-    background-size: 16px;
+    background-position: right 18px center;
+    background-size: 14px;
     padding-right: 45px !important;
 }
 
 .input-field select option {
     background: #1e293b;
-    color: white;
+    color: white; /* White choices for better visibility */
+    padding: 12px;
+}
+
+/* Highlight effect for options (supported in some modern browsers) */
+.input-field select option:hover {
+    background-color: #0284c7;
 }
 
 .input-field:focus-within {
