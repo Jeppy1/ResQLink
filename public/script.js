@@ -1,4 +1,4 @@
-// 1. Initialize Pusher 
+// 1. Initialize Pusher
 const pusher = new Pusher('899f970a7cf34c9a73a9', { cluster: 'ap1' });
 const channel = pusher.subscribe('aprs-channel');
 
@@ -52,6 +52,7 @@ function updateRegisteredList(data) {
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     const lastSeenDate = parseMongoDate(data.lastSeen);
+    // 10 minutes timeout for Online Status
     const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
 
@@ -257,7 +258,10 @@ window.onload = async () => {
             document.getElementById('role-text').innerText = userRole === 'admin' ? "System Admin" : "Field Staff";
             document.getElementById('role-badge').classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
-        const res = await fetch('/api/positions');
+        
+        // FIX: Cache Busting - Force browser to ask server for fresh data
+        const res = await fetch(`/api/positions?t=${Date.now()}`);
+        
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         
         if (res.ok) {
