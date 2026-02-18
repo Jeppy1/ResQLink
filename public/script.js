@@ -28,6 +28,19 @@ function getSymbolIcon(symbol) {
     });
 }
 
+// --- HELPER: ROBUST DATE PARSER ---
+function parseMongoDate(rawDate) {
+    if (!rawDate) return null;
+    // Handle MongoDB Extended JSON format: { "$date": "2026-..." }
+    if (typeof rawDate === 'object' && rawDate.$date) {
+        return new Date(rawDate.$date);
+    }
+    // Handle standard strings or Date objects
+    const dateObj = new Date(rawDate);
+    // Check if valid
+    return isNaN(dateObj.getTime()) ? null : dateObj;
+}
+
 // --- 4. MODAL UTILITIES ---
 function showSuccess(title, message) {
     document.getElementById('successTitle').innerText = title;
@@ -55,10 +68,10 @@ function updateRegisteredList(data) {
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     
-    // FIX: Extract date correctly from MongoDB $date object if it exists
-    const rawDate = data.lastSeen && data.lastSeen.$date ? data.lastSeen.$date : data.lastSeen;
-    const lastSeenDate = rawDate ? new Date(rawDate) : null;
+    // FIX: Use the helper function to reliably get the date object
+    const lastSeenDate = parseMongoDate(data.lastSeen);
     
+    // Online if seen in last 10 minutes (600,000 ms)
     const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
 
@@ -260,9 +273,9 @@ async function updateMapAndUI(data) {
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     
-    // FIX: Extract date correctly from DB for the activity log
-    const rawDate = lastSeen && lastSeen.$date ? lastSeen.$date : lastSeen;
-    const dateObj = rawDate ? new Date(rawDate) : null;
+    // FIX: Use helper function to get date from DB object or string
+    const dateObj = parseMongoDate(lastSeen);
+    // If date is valid, use it; otherwise say "No Signal" (Do NOT use new Date())
     const timeStr = dateObj ? dateObj.toLocaleTimeString() : "No Signal";
     
     updateRecentActivity(callsign, lat, lng, timeStr);
@@ -306,11 +319,11 @@ window.onload = async () => {
 
         const history = await res.json();
         if (Array.isArray(history)) {
-            // FIX: Accurate sorting for MongoDB date objects
+            // FIX: Robust sorting using the helper
             history.sort((a, b) => {
-                const dateA = a.lastSeen && a.lastSeen.$date ? new Date(a.lastSeen.$date) : new Date(a.lastSeen);
-                const dateB = b.lastSeen && b.lastSeen.$date ? new Date(b.lastSeen.$date) : new Date(b.lastSeen);
-                return dateA - dateB;
+                const dateA = parseMongoDate(a.lastSeen);
+                const dateB = parseMongoDate(b.lastSeen);
+                return (dateA || 0) - (dateB || 0);
             });
             history.forEach(d => updateMapAndUI(d));
         }
