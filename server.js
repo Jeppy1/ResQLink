@@ -172,6 +172,11 @@ connectAPRS();
 client.on('data', async (data) => {
     if (connResQLink.readyState !== 1 || connTest.readyState !== 1) return;
     const rawPacket = data.toString();
+    // DEBUG: Print who is sending data to your server
+    if (rawPacket.includes("DW4AMU-10")) {
+        console.log("!!! GHOST PACKET RECEIVED !!!");
+        console.log(rawPacket); 
+    }
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
 
