@@ -18,7 +18,7 @@
         <div class="modal-card">
             <div class="modal-header">
                 <h3><i class="fa-solid fa-id-card"></i> Callsign Registration</h3>
-                </div>
+            </div>
             <div class="modal-body">
                 <p>Registering Callsign: <strong id="modalCallsignDisplay">---</strong></p>
                 
@@ -129,6 +129,17 @@
                     <i class="fa-solid fa-id-card"></i> Register
                 </button>
             </div>
+        </div>
+
+        <div class="registered-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4><i class="fa-solid fa-address-book"></i> Registered Callsigns</h4>
+                <button onclick="downloadAllPaths()" class="btn-download" title="Download Coordinate History">
+                    <i class="fa-solid fa-file-csv"></i>
+                </button>
+            </div>
+            <div id="registered-list" class="station-list">
+                </div>
         </div>
 
         <div class="legend-container">
