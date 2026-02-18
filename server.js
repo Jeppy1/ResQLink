@@ -102,14 +102,13 @@ app.post('/api/login', (req, res) => {
     }
 });
 
-// FIXED LOGOUT ROUTE
 app.get('/api/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
             return res.status(500).json({ error: "Could not log out" });
         }
-        res.clearCookie('connect.sid'); // Clears the session cookie
-        res.redirect('/'); // Redirects to handle re-authentication
+        res.clearCookie('connect.sid'); 
+        res.redirect('/'); 
     });
 });
 
@@ -167,16 +166,20 @@ function connectAPRS() {
 }
 connectAPRS();
 
-// --- UPDATED DATA PROCESSING (20 COORDINATES LIMIT) ---
-
+// --- UPDATED DATA PROCESSING (GHOST DETECTION + 20 COORDS) ---
 client.on('data', async (data) => {
     if (connResQLink.readyState !== 1 || connTest.readyState !== 1) return;
     const rawPacket = data.toString();
-    // DEBUG: Print who is sending data to your server
+    
+    // --- GHOST DETECTOR START ---
     if (rawPacket.includes("DW4AMU-10")) {
-        console.log("!!! GHOST PACKET RECEIVED !!!");
-        console.log(rawPacket); 
+        console.log("\n>>> 👻 GHOST PACKET DETECTED 👻 <<<");
+        console.log("Time:", new Date().toLocaleString());
+        console.log("Packet:", rawPacket.trim());
+        console.log("------------------------------------\n");
     }
+    // --- GHOST DETECTOR END ---
+
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
 
@@ -188,7 +191,6 @@ client.on('data', async (data) => {
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
-            // UPDATED: Changed $slice to -20 to store more historical pathing data
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
                 { 
@@ -198,7 +200,7 @@ client.on('data', async (data) => {
                     $push: { 
                         path: { 
                             $each: [newCoords], 
-                            $slice: -20  // Keeps the 20 most recent coordinate pairs
+                            $slice: -20  
                         } 
                     } 
                 },
