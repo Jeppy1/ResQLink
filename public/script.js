@@ -96,17 +96,42 @@ function downloadAllPaths() {
 }
 
 async function deleteStation(callsign) {
+    // 1. Set the global variable
     stationToDelete = callsign;
+    
+    // 2. Update the UI text
     document.getElementById('deleteCallsignDisplay').innerText = callsign;
     document.getElementById('deleteConfirmModal').style.display = 'flex';
-    document.getElementById('confirmDeleteBtn').onclick = async () => {
+    
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    
+    // 3. Clear previous listeners to prevent multiple deletions at once
+    confirmBtn.onclick = null; 
+
+    confirmBtn.onclick = async () => {
         if (!stationToDelete) return;
+        
+        // FIX: Capture the callsign in a local variable before closing the modal
+        const targetCallsign = stationToDelete; 
+
         document.body.classList.add('loading-process');
         try {
-            const response = await fetch(`/api/delete-station/${stationToDelete}`, { method: 'DELETE' });
-            if (response.ok) { closeDeleteModal(); showSuccess("Deleted", `${stationToDelete} removed.`); }
-        } catch (e) { console.error(e); }
-        finally { document.body.classList.remove('loading-process'); }
+            const response = await fetch(`/api/delete-station/${targetCallsign}`, { method: 'DELETE' });
+            if (response.ok) { 
+                // Close modal (which sets stationToDelete to null)
+                closeDeleteModal(); 
+                
+                // Use our local 'targetCallsign' variable so the message isn't 'null'
+                showSuccess("Deleted", `${targetCallsign} has been removed.`); 
+            } else {
+                const err = await response.json();
+                alert(err.error || "Permission Denied.");
+            }
+        } catch (e) { 
+            console.error("Network error:", e); 
+        } finally { 
+            document.body.classList.remove('loading-process'); 
+        }
     };
 }
 
