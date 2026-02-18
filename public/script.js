@@ -55,15 +55,22 @@ function toggleRegFields() {
     const ownerInput = document.getElementById('ownerName');
     const contactInput = document.getElementById('contactNum');
     const emergencyFields = document.getElementById('tracker-only-fields');
+    const saveBtn = document.querySelector('#regModal .btn-confirm'); // Select the Save button
 
     if (type === 'igate') {
         ownerInput.placeholder = "Station Custodian (e.g. MDRRMO)";
         contactInput.placeholder = "Hotline / Office Number";
         emergencyFields.style.display = 'none';
+        
+        // Change button text for iGate
+        if (saveBtn) saveBtn.innerText = "Save Station";
     } else {
         ownerInput.placeholder = "Name of Owner/Responder";
         contactInput.placeholder = "Personal Contact Number";
         emergencyFields.style.display = 'block';
+        
+        // Change button text back for Tracker
+        if (saveBtn) saveBtn.innerText = "Save Tracker";
     }
 }
 
@@ -74,7 +81,7 @@ function registerStation() {
     
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
-    toggleRegFields(); // Initialize placeholders
+    toggleRegFields(); // Initialize placeholders and button text
 }
 
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
