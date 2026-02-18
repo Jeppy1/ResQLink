@@ -21,6 +21,7 @@ function getSymbolIcon(symbol) {
     return L.icon({ iconUrl: `icons/${fileName}`, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -15], symbolCode: symbol });
 }
 
+// STRICT PARSER: If invalid, return null.
 function parseMongoDate(rawDate) {
     if (!rawDate) return null;
     if (typeof rawDate === 'object' && rawDate.$date) return new Date(rawDate.$date);
@@ -28,7 +29,6 @@ function parseMongoDate(rawDate) {
     return isNaN(dateObj.getTime()) ? null : dateObj;
 }
 
-// --- MODALS ---
 function showSuccess(title, message) {
     document.getElementById('successTitle').innerText = title;
     document.getElementById('successMessage').innerText = message;
@@ -46,7 +46,6 @@ function closeDeleteModal() {
     stationToDelete = null;
 }
 
-// --- LOGIC ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
     if (!list || !data.isRegistered) return;
@@ -224,6 +223,8 @@ async function updateMapAndUI(data) {
     }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
+    
+    // FIX: Parse valid DB date or show "No Signal". NEVER show "Now"
     const dateObj = parseMongoDate(lastSeen);
     const timeStr = dateObj ? dateObj.toLocaleTimeString() : "No Signal";
     
