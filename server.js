@@ -21,7 +21,7 @@ app.use(session({
     cookie: { secure: true, sameSite: 'none', maxAge: 1000 * 60 * 60 * 24 }
 }));
 
-// --- 2. DUAL MONGODB CONFIGURATION ---
+// --- 2. DATABASE CONFIGURATION ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 const uriTest = process.env.MONGODB_URL_TEST;
 
@@ -41,7 +41,7 @@ const trackerSchema = new mongoose.Schema({
 const TrackerResQLink = connResQLink.model('Tracker', trackerSchema);
 const TrackerTest = connTest.model('Tracker', trackerSchema);
 
-// --- 3. PUSHER INITIALIZATION --- 
+// --- 3. PUSHER --- 
 const pusher = new Pusher({
     appId: process.env.PUSHER_APP_ID,
     key: process.env.PUSHER_KEY,
@@ -50,8 +50,7 @@ const pusher = new Pusher({
     useTLS: true
 });
 
-// --- 4. SECURE ROUTING & ROLE MIDDLEWARE ---
-
+// --- 4. ROUTES ---
 function isAuthenticated(req, res, next) {
     if (req.session.user) return next();
     res.status(401).json({ error: "Unauthorized" }); 
@@ -59,7 +58,7 @@ function isAuthenticated(req, res, next) {
 
 function isAdmin(req, res, next) {
     if (req.session.user && req.session.role === 'admin') return next();
-    res.status(403).json({ error: "Access Denied: Admin privileges required." });
+    res.status(403).json({ error: "Access Denied" });
 }
 
 app.get('/', (req, res) => {
@@ -83,30 +82,23 @@ app.get('/api/get-address', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- API ENDPOINTS ---
-
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     if (username === 'admin' && password === 'resqlink2026') {
         req.session.user = username;
         req.session.role = 'admin';
         req.session.save(() => res.json({ success: true, role: 'admin' }));
-    } 
-    else if (username === 'staff' && password === 'staff2026') {
+    } else if (username === 'staff' && password === 'staff2026') {
         req.session.user = username;
         req.session.role = 'viewer';
         req.session.save(() => res.json({ success: true, role: 'viewer' }));
-    } 
-    else {
+    } else {
         res.status(401).json({ error: "Invalid Credentials" });
     }
 });
 
 app.get('/api/logout', (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).json({ error: "Could not log out" });
-        }
+    req.session.destroy(() => {
         res.clearCookie('connect.sid'); 
         res.redirect('/'); 
     });
@@ -126,13 +118,12 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
         const existingStation = await TrackerResQLink.findOne({ callsign: formattedCallsign });
         
         if (existingStation && existingStation.isRegistered) {
-            return res.status(400).json({ error: "This callsign is already registered." });
+            return res.status(400).json({ error: "Already registered." });
         }
 
         const updateData = {
             callsign: formattedCallsign, lat: lat.toString(), lng: lng.toString(),
-            symbol: symbol || (existingStation ? existingStation.symbol : "/-"), 
-            details: details || "Registered Responder",
+            symbol: symbol || "/-", details: details || "Registered Responder",
             ownerName, contactNum, emergencyName, emergencyNum,
             isRegistered: true, lastSeen: new Date()
         };
@@ -141,7 +132,7 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
         await TrackerTest.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true });
 
         pusher.trigger("aprs-channel", "new-data", newStation);
-        res.status(200).json({ message: "Station Registered!", data: newStation });
+        res.status(200).json({ message: "Registered!", data: newStation });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -150,13 +141,12 @@ app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
         const callsign = req.params.callsign.toUpperCase().trim();
         await TrackerResQLink.findOneAndDelete({ callsign: callsign });
         await TrackerTest.findOneAndDelete({ callsign: callsign });
-        
         pusher.trigger("aprs-channel", "delete-data", { callsign });
-        res.status(200).json({ message: "Station deleted successfully." });
-    } catch (err) { res.status(500).json({ error: "Failed to delete." }); }
+        res.status(200).json({ message: "Deleted." });
+    } catch (err) { res.status(500).json({ error: "Failed." }); }
 });
 
-// --- 5. APRS-IS & DATA PROCESSING ---
+// --- 5. APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "asia.aprs2.net", () => {
@@ -166,20 +156,33 @@ function connectAPRS() {
 }
 connectAPRS();
 
-// --- UPDATED DATA PROCESSING (GHOST DETECTION + 20 COORDS) ---
-client.on('data', async (data) => {
-    if (connResQLink.readyState !== 1 || connTest.readyState !== 1) return;
-    const rawPacket = data.toString();
-    
-    // --- GHOST DETECTOR START ---
-    if (rawPacket.includes("DW4AMU-10")) {
-        console.log("\n>>> 👻 GHOST PACKET DETECTED 👻 <<<");
-        console.log("Time:", new Date().toLocaleString());
-        console.log("Packet:", rawPacket.trim());
-        console.log("------------------------------------\n");
-    }
-    // --- GHOST DETECTOR END ---
+// --- HELPER: Parse APRS Timestamp (@HHMMSSz) ---
+function extractPacketTime(rawPacket) {
+    // Regex for time format: @141132z or @141132h
+    const timeMatch = rawPacket.match(/@([0-9]{6})[zh]/); 
+    if (timeMatch) {
+        const rawTime = timeMatch[1]; // e.g., "141132"
+        const hours = parseInt(rawTime.substring(0, 2));
+        const minutes = parseInt(rawTime.substring(2, 4));
+        const seconds = parseInt(rawTime.substring(4, 6));
 
+        // Construct date object using Today's date + Packet Time
+        const packetDate = new Date();
+        packetDate.setUTCHours(hours, minutes, seconds, 0);
+
+        // If packet time is in the future (e.g. diff timezones), assume it was yesterday
+        if (packetDate > new Date(Date.now() + 1000 * 60 * 15)) {
+            packetDate.setDate(packetDate.getDate() - 1);
+        }
+        return packetDate;
+    }
+    // If no timestamp in packet, fallback to Now
+    return new Date();
+}
+
+client.on('data', async (data) => {
+    if (connResQLink.readyState !== 1) return;
+    const rawPacket = data.toString();
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
 
@@ -187,40 +190,33 @@ client.on('data', async (data) => {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
-        const newCoords = [parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4))];
+        
+        // FIX: Calculate time from packet, not system time
+        const packetTime = extractPacketTime(rawPacket); 
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
+            
+            // OPTIONAL: Ignore packets older than 30 mins to prevent "ghosting"
+            const ageInMinutes = (new Date() - packetTime) / 60000;
+            if (ageInMinutes > 30) {
+                console.log(`[IGNORED] Old packet for ${callsign}: ${packetTime.toLocaleTimeString()}`);
+                return; 
+            }
+
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
                 { 
                     lat: lat.toFixed(4), 
                     lng: lng.toFixed(4), 
-                    lastSeen: new Date(),
-                    $push: { 
-                        path: { 
-                            $each: [newCoords], 
-                            $slice: -20  
-                        } 
-                    } 
+                    lastSeen: packetTime, // Use Packet Time!
+                    $push: { path: { $each: [[parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4))]], $slice: -20 } } 
                 },
                 { new: true }
             );
 
-            // Sync with Test database
-            await TrackerTest.findOneAndUpdate(
-                { callsign: callsign }, 
-                { 
-                    lat: lat.toFixed(4), 
-                    lng: lng.toFixed(4),
-                    $push: { 
-                        path: { 
-                            $each: [newCoords], 
-                            $slice: -20 
-                        } 
-                    } 
-                }
-            );
+            // Fire-and-forget update to Test DB
+            TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4) }).exec();
             
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), callsign });
         }
