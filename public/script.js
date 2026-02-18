@@ -85,19 +85,28 @@ function focusStation(callsign) {
 }
 
 // --- CSV DOWNLOAD PATHING LOGIC ---
+// --- ORGANIZED DOWNLOAD LOGIC ---
 function downloadAllPaths() {
-    let csvContent = "data:text/csv;charset=utf-8,Callsign,Latitude,Longitude,Timestamp\n";
+    let csvContent = "data:text/csv;charset=utf-8,";
     
+    // Grouping by Callsign with headers
     Object.keys(trackCoords).forEach(callsign => {
+        csvContent += `\n--- HISTORY FOR: ${callsign} ---\n`;
+        csvContent += "Latitude,Longitude,Date,Time\n";
+        
         trackCoords[callsign].forEach(coord => {
-            csvContent += `${callsign},${coord[0]},${coord[1]},${new Date().toISOString()}\n`;
+            const now = new Date();
+            const dateStr = now.toLocaleDateString(); // e.g. 2/19/2026
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // e.g. 2:30 PM
+            
+            csvContent += `${coord[0]},${coord[1]},${dateStr},${timeStr}\n`;
         });
     });
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `ResQLink_Coordinates_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute("download", `ResQLink_Report_${new Date().toLocaleDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
