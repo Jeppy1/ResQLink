@@ -48,16 +48,16 @@ function closeDeleteModal() {
     stationToDelete = null;
 }
 
-// --- REGISTERED CALLSIGNS LIST LOGIC ---
+// --- UPDATED: REGISTERED CALLSIGNS LIST LOGIC ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
     if (!list || !data.isRegistered) return;
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     
-    // Determine status: Online if seen in last 10 minutes
-    const lastSeenDate = data.lastSeen ? new Date(data.lastSeen) : new Date();
-    const isOnline = (new Date() - lastSeenDate) < 600000; 
+    // FIX: Convert DB lastSeen to Date object for accurate status check
+    const lastSeenTime = data.lastSeen ? new Date(data.lastSeen) : null;
+    const isOnline = lastSeenTime && (new Date() - lastSeenTime) < 600000; 
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
 
     const itemHTML = `
@@ -84,25 +84,17 @@ function focusStation(callsign) {
     }
 }
 
-// --- CSV DOWNLOAD PATHING LOGIC ---
 // --- ORGANIZED DOWNLOAD LOGIC ---
 function downloadAllPaths() {
     let csvContent = "data:text/csv;charset=utf-8,";
-    
-    // Grouping by Callsign with headers
     Object.keys(trackCoords).forEach(callsign => {
         csvContent += `\n--- HISTORY FOR: ${callsign} ---\n`;
         csvContent += "Latitude,Longitude,Date,Time\n";
-        
         trackCoords[callsign].forEach(coord => {
-            const now = new Date();
-            const dateStr = now.toLocaleDateString(); // e.g. 2/19/2026
-            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); // e.g. 2:30 PM
-            
-            csvContent += `${coord[0]},${coord[1]},${dateStr},${timeStr}\n`;
+            const dateObj = new Date(); // Ideally, capture timestamp per coord in DB
+            csvContent += `${coord[0]},${coord[1]},${dateObj.toLocaleDateString()},${dateObj.toLocaleTimeString()}\n`;
         });
     });
-
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -116,13 +108,11 @@ async function deleteStation(callsign) {
     stationToDelete = callsign;
     document.getElementById('deleteCallsignDisplay').innerText = callsign;
     document.getElementById('deleteConfirmModal').style.display = 'flex';
-
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     confirmBtn.onclick = async () => {
         if (!stationToDelete) return;
         const deletedCallsign = stationToDelete; 
         document.body.classList.add('loading-process');
-        
         try {
             const response = await fetch(`/api/delete-station/${deletedCallsign}`, { method: 'DELETE' });
             if (response.ok) {
@@ -151,7 +141,6 @@ function executeClear() {
 channel.bind('connection-status', (data) => {
     const statusText = document.getElementById('status-text');
     const statusDot = document.getElementById('status-dot');
-
     if (data.status === "Online") {
         if (statusText) statusText.innerText = "Connected to APRS-IS";
         if (statusDot) statusDot.style.color = "#22c55e"; 
@@ -171,7 +160,6 @@ channel.bind('delete-data', (data) => {
         const tbody = document.getElementById('history-body');
         const targetRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
         if (targetRow) targetRow.remove();
-        
         const listItem = document.getElementById(`list-${callsign}`);
         if (listItem) listItem.remove();
     }
@@ -257,7 +245,6 @@ async function updateMapAndUI(data) {
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
-    // INCREASED LIMIT: Maintain last 20 coordinates
     trackCoords[callsign] = path || [];
     if (trackCoords[callsign].length > 20) trackCoords[callsign] = trackCoords[callsign].slice(-20);
 
@@ -268,9 +255,12 @@ async function updateMapAndUI(data) {
     }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
-    const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : new Date().toLocaleTimeString();
+    
+    // FIX: Only use current time if lastSeen is missing, otherwise use DB time
+    const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : "No Signal";
+    
     updateRecentActivity(callsign, lat, lng, timeStr);
-    updateRegisteredList(data); // Sync sidebar
+    updateRegisteredList(data); 
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
@@ -302,6 +292,13 @@ window.onload = async () => {
         }
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
+        
+        // FIX: Update status bar to 'Connected' once data is fetched
+        if (res.ok) {
+            document.getElementById('status-text').innerText = "Connected to APRS-IS";
+            document.getElementById('status-dot').style.color = "#22c55e";
+        }
+
         const history = await res.json();
         if (Array.isArray(history)) {
             history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
