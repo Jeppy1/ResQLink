@@ -84,10 +84,17 @@ function executeClear() {
 }
 
 // --- 5. DASHBOARD LISTENERS ---
+// --- UPDATED CONNECTION STATUS LISTENER ---
 channel.bind('connection-status', (data) => {
-    if(data.status === "Online") {
-        document.getElementById('status-text').innerText = "Connected to APRS-IS";
-        document.getElementById('status-dot').style.color = "#22c55e"; 
+    const statusText = document.getElementById('status-text');
+    const statusDot = document.getElementById('status-dot');
+
+    if (data.status === "Online") {
+        if (statusText) statusText.innerText = "Connected to APRS-IS";
+        if (statusDot) statusDot.style.color = "#22c55e"; // Success Green
+    } else {
+        if (statusText) statusText.innerText = "Connection Lost";
+        if (statusDot) statusDot.style.color = "#ef4444"; // Error Red
     }
 });
 
