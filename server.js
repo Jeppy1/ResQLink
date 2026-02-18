@@ -25,8 +25,18 @@ app.use(session({
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 const uriTest = process.env.MONGODB_URL_TEST;
 
-const connResQLink = mongoose.createConnection(uriResQLink, { serverSelectionTimeoutMS: 5000 });
-const connTest = mongoose.createConnection(uriTest, { serverSelectionTimeoutMS: 5000 });
+// Connect with Error Handling to prevent hanging
+const connResQLink = mongoose.createConnection(uriResQLink, { 
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000 
+});
+const connTest = mongoose.createConnection(uriTest, { 
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000 
+});
+
+connResQLink.on('error', err => console.error('ResQLink DB Error:', err));
+connTest.on('error', err => console.error('Test DB Error:', err));
 
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
@@ -148,7 +158,6 @@ function connectAPRS() {
 }
 connectAPRS();
 
-// --- STRICT TIME PARSER ---
 function extractPacketTime(rawPacket) {
     const timeMatch = rawPacket.match(/@([0-9]{6})[zh]/); 
     if (timeMatch) {
@@ -156,21 +165,23 @@ function extractPacketTime(rawPacket) {
         const hours = parseInt(rawTime.substring(0, 2));
         const minutes = parseInt(rawTime.substring(2, 4));
         const seconds = parseInt(rawTime.substring(4, 6));
-
         const packetDate = new Date();
         packetDate.setUTCHours(hours, minutes, seconds, 0);
-
         if (packetDate > new Date(Date.now() + 1000 * 60 * 15)) {
             packetDate.setDate(packetDate.getDate() - 1);
         }
         return packetDate;
     }
-    return null; // NO TIME FOUND = NULL
+    return null;
 }
 
 client.on('data', async (data) => {
     if (connResQLink.readyState !== 1) return;
     const rawPacket = data.toString();
+
+    // --- 🛡️ GHOST BLOCKER: PREVENT INTERNET ECHOES ---
+    if (rawPacket.includes("TCPIP*")) return; 
+
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
 
@@ -178,25 +189,18 @@ client.on('data', async (data) => {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
-        
-        // 1. TRY TO GET TIME FROM PACKET
         const packetTime = extractPacketTime(rawPacket); 
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
-            
-            // 2. PREPARE UPDATE (Coordinate only first)
             const updateFields = {
                 lat: lat.toFixed(4), 
                 lng: lng.toFixed(4),
                 $push: { path: { $each: [[parseFloat(lat.toFixed(4)), parseFloat(lng.toFixed(4))]], $slice: -20 } } 
             };
-
-            // 3. ONLY UPDATE TIME IF IT EXISTS IN PACKET
             if (packetTime) {
-                updateFields.lastSeen = packetTime; // Sync with packet time
+                updateFields.lastSeen = packetTime;
             } 
-            // Else: We DO NOT add lastSeen to updateFields. The old DB time stays.
 
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
@@ -205,11 +209,13 @@ client.on('data', async (data) => {
             );
 
             TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4) }).exec();
-            
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), callsign });
         }
     }
 });
 
+// Use the dynamic port Railway requires
 const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => console.log(`Server Live on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server fully live on port ${PORT}`);
+});
