@@ -34,12 +34,7 @@ function showSuccess(title, message) {
     document.getElementById('successMessage').innerText = message;
     document.getElementById('successModal').style.display = 'flex';
 }
-
-function closeSuccessModal() { 
-    document.getElementById('successModal').style.display = 'none'; 
-    // Manual refresh only if needed after a major registration/deletion
-    // location.reload(); // Uncomment if you want map to hard-refresh on OK
-}
+function closeSuccessModal() { document.getElementById('successModal').style.display = 'none'; }
 
 function openConfirmModal(callsign) {
     pendingClearCallsign = callsign;
@@ -48,7 +43,6 @@ function openConfirmModal(callsign) {
 }
 function closeConfirmModal() { document.getElementById('confirmModal').style.display = 'none'; }
 
-// --- UPDATED DELETE LOGIC WITH LOADING CURSOR ---
 function closeDeleteModal() {
     document.getElementById('deleteConfirmModal').style.display = 'none';
     stationToDelete = null;
@@ -63,8 +57,6 @@ async function deleteStation(callsign) {
     confirmBtn.onclick = async () => {
         if (!stationToDelete) return;
         const deletedCallsign = stationToDelete; 
-        
-        // Show loading cursor
         document.body.classList.add('loading-process');
         
         try {
@@ -77,9 +69,7 @@ async function deleteStation(callsign) {
                 alert(err.error || "Permission Denied.");
             }
         } catch (e) { console.error("Network error:", e); }
-        finally {
-            document.body.classList.remove('loading-process'); // Reset cursor
-        }
+        finally { document.body.classList.remove('loading-process'); }
     };
 }
 
@@ -117,10 +107,8 @@ channel.bind('delete-data', (data) => {
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
-    
     let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
     let targetRow;
-
     if (existingRow) {
         existingRow.cells[1].innerHTML = `<span style="color: #666; font-size: 11px;">${lat}</span>`;
         existingRow.cells[2].innerHTML = `<span style="color: #666; font-size: 11px;">${lng}</span>`;
@@ -131,7 +119,6 @@ function updateRecentActivity(callsign, lat, lng, time) {
         targetRow = tbody.insertRow(0);
         targetRow.innerHTML = `<td>${callsign}</td><td><span style="color: #666; font-size: 11px;">${lat}</span></td><td><span style="color: #666; font-size: 11px;">${lng}</span></td><td>${time}</td>`;
     }
-
     targetRow.classList.remove('row-update');
     void targetRow.offsetWidth; 
     targetRow.classList.add('row-update');
@@ -155,46 +142,65 @@ function handleLogout() {
     window.location.href = '/api/logout'; 
 }
 
+// --- UPDATED REGISTER STATION LOGIC ---
 function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
     if (!cs) return alert("Enter callsign.");
+    
     const existingMarker = markers[cs];
+    
+    // Check if it's already registered
     if (existingMarker && existingMarker.isRegistered) {
         showSuccess("Already Registered", `${cs} is already in the ResQLink database.`);
         return; 
     }
+
+    // CONDITIONAL FIELDS: Hide emergency info if symbol is iGate (/r)
+    const isIGate = existingMarker && existingMarker.options.icon.options.symbolCode === '/r';
+    
+    // Toggle the emergency contact input containers
+    const emergencyFields = [
+        document.getElementById('emergencyName').parentElement,
+        document.getElementById('emergencyNum').parentElement
+    ];
+
+    emergencyFields.forEach(container => {
+        if (container) container.style.display = isIGate ? 'none' : 'flex';
+    });
+
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
 }
 
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
 
-// --- UPDATED REGISTRATION FLOW ---
 async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
+    const isIGate = markers[cs] && markers[cs].options.icon.options.symbolCode === '/r';
+    
     const data = {
-        callsign: cs, lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857, lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
-        ownerName: document.getElementById('ownerName').value, contactNum: document.getElementById('contactNum').value,
-        emergencyName: document.getElementById('emergencyName').value, emergencyNum: document.getElementById('emergencyNum').value,
-        symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', details: "Registered Responder"
+        callsign: cs, 
+        lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857, 
+        lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
+        ownerName: document.getElementById('ownerName').value, 
+        contactNum: document.getElementById('contactNum').value,
+        emergencyName: isIGate ? "N/A" : document.getElementById('emergencyName').value, 
+        emergencyNum: isIGate ? "N/A" : document.getElementById('emergencyNum').value,
+        symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', 
+        details: isIGate ? "Stationary iGate" : "Registered Responder"
     };
 
     if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
     
-    // Show loading cursor
     document.body.classList.add('loading-process');
-
     try {
         const res = await fetch('/api/register-station', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
         if (res.ok) { 
             closeModal(); 
-            // Removed abrupt setTimeout/reload for smoother flow
             showSuccess("Success", `${cs} registered successfully.`); 
         }
     } catch (e) { showSuccess("Error", "Server unreachable."); }
-    finally {
-        document.body.classList.remove('loading-process'); // Reset cursor
-    }
+    finally { document.body.classList.remove('loading-process'); }
 }
 
 async function updateMapAndUI(data) {
@@ -222,11 +228,7 @@ async function updateMapAndUI(data) {
             <i class="fa-solid fa-trash"></i> Delete
         </button>` : '';
 
-// --- UPDATED POPUP CONTENT LOGIC ---
-
-// Check if the symbol is NOT an iGate (/r)
     const showEmergencyInfo = symbol !== '/r';
-    
     const emergencySection = showEmergencyInfo ? `
         <b>Emergency:</b> ${emergencyName || 'N/A'}<br>
         <b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
@@ -262,26 +264,20 @@ async function updateMapAndUI(data) {
 window.onload = async () => {
     try {
         userRole = localStorage.getItem('userRole') || 'viewer'; 
-        
         const roleText = document.getElementById('role-text');
         const roleBadge = document.getElementById('role-badge');
-        
         if (roleText && roleBadge) {
             roleText.innerText = userRole === 'admin' ? "System Admin" : "Field Staff";
             roleBadge.classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
-
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
-        
         if (Array.isArray(history)) {
             history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
             history.forEach(d => updateMapAndUI(d));
         }
-    } catch (err) { 
-        console.error("Dashboard initialization failed:", err); 
-    }
+    } catch (err) { console.error("Dashboard initialization failed:", err); }
 };
 
 channel.bind('new-data', updateMapAndUI);
