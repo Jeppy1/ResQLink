@@ -48,6 +48,61 @@ function closeDeleteModal() {
     stationToDelete = null;
 }
 
+// --- REGISTERED CALLSIGNS LIST LOGIC ---
+function updateRegisteredList(data) {
+    const list = document.getElementById('registered-list');
+    if (!list || !data.isRegistered) return;
+
+    let existingItem = document.getElementById(`list-${data.callsign}`);
+    
+    // Determine status: Online if seen in last 10 minutes
+    const lastSeenDate = data.lastSeen ? new Date(data.lastSeen) : new Date();
+    const isOnline = (new Date() - lastSeenDate) < 600000; 
+    const statusClass = isOnline ? 'online-dot' : 'offline-dot';
+
+    const itemHTML = `
+        <div class="station-item" id="list-${data.callsign}" onclick="focusStation('${data.callsign}')">
+            <div>
+                <b style="color: #38bdf8;">${data.callsign}</b><br>
+                <span style="font-size: 10px; color: #94a3b8;">${data.ownerName || 'Custodian'}</span>
+            </div>
+            <span class="status-indicator ${statusClass}"></span>
+        </div>
+    `;
+
+    if (existingItem) {
+        existingItem.outerHTML = itemHTML;
+    } else {
+        list.insertAdjacentHTML('beforeend', itemHTML);
+    }
+}
+
+function focusStation(callsign) {
+    if (markers[callsign]) {
+        map.setView(markers[callsign].getLatLng(), 15, { animate: true });
+        markers[callsign].openPopup();
+    }
+}
+
+// --- CSV DOWNLOAD PATHING LOGIC ---
+function downloadAllPaths() {
+    let csvContent = "data:text/csv;charset=utf-8,Callsign,Latitude,Longitude,Timestamp\n";
+    
+    Object.keys(trackCoords).forEach(callsign => {
+        trackCoords[callsign].forEach(coord => {
+            csvContent += `${callsign},${coord[0]},${coord[1]},${new Date().toISOString()}\n`;
+        });
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ResQLink_Coordinates_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 async function deleteStation(callsign) {
     stationToDelete = callsign;
     document.getElementById('deleteCallsignDisplay').innerText = callsign;
@@ -107,6 +162,9 @@ channel.bind('delete-data', (data) => {
         const tbody = document.getElementById('history-body');
         const targetRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
         if (targetRow) targetRow.remove();
+        
+        const listItem = document.getElementById(`list-${callsign}`);
+        if (listItem) listItem.remove();
     }
 });
 
@@ -148,35 +206,19 @@ function handleLogout() {
     window.location.href = '/api/logout'; 
 }
 
-// --- UPDATED REGISTER STATION LOGIC ---
 function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
     if (!cs) return alert("Enter callsign.");
-    
     const existingMarker = markers[cs];
-    
     if (existingMarker && existingMarker.isRegistered) {
         showSuccess("Already Registered", `${cs} is already in the ResQLink database.`);
         return; 
     }
-
     const isIGate = existingMarker && existingMarker.options.icon.options.symbolCode === '/r';
-    
-    // Update labels and placeholders for iGate
     const ownerInput = document.getElementById('ownerName');
-    if (ownerInput) {
-        ownerInput.placeholder = isIGate ? "Name of Station Custodian" : "Name of Owner/Responder";
-    }
-
-    const emergencyFields = [
-        document.getElementById('emergencyName').parentElement,
-        document.getElementById('emergencyNum').parentElement
-    ];
-
-    emergencyFields.forEach(container => {
-        if (container) container.style.display = isIGate ? 'none' : 'flex';
-    });
-
+    if (ownerInput) ownerInput.placeholder = isIGate ? "Name of Station Custodian" : "Name of Owner/Responder";
+    const emergencyFields = [document.getElementById('emergencyName').parentElement, document.getElementById('emergencyNum').parentElement];
+    emergencyFields.forEach(container => { if (container) container.style.display = isIGate ? 'none' : 'flex'; });
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
 }
@@ -186,28 +228,17 @@ function closeModal() { document.getElementById('regModal').style.display = 'non
 async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
     const isIGate = markers[cs] && markers[cs].options.icon.options.symbolCode === '/r';
-    
     const data = {
-        callsign: cs, 
-        lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857, 
-        lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
-        ownerName: document.getElementById('ownerName').value, 
-        contactNum: document.getElementById('contactNum').value,
-        emergencyName: isIGate ? "N/A" : document.getElementById('emergencyName').value, 
-        emergencyNum: isIGate ? "N/A" : document.getElementById('emergencyNum').value,
-        symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', 
-        details: isIGate ? "Stationary iGate" : "Registered Responder"
+        callsign: cs, lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857, lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
+        ownerName: document.getElementById('ownerName').value, contactNum: document.getElementById('contactNum').value,
+        emergencyName: isIGate ? "N/A" : document.getElementById('emergencyName').value, emergencyNum: isIGate ? "N/A" : document.getElementById('emergencyNum').value,
+        symbol: markers[cs] ? markers[cs].options.icon.options.symbolCode : '/[', details: isIGate ? "Stationary iGate" : "Registered Responder"
     };
-
     if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
-    
     document.body.classList.add('loading-process');
     try {
         const res = await fetch('/api/register-station', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        if (res.ok) { 
-            closeModal(); 
-            showSuccess("Success", `${cs} registered successfully.`); 
-        }
+        if (res.ok) { closeModal(); showSuccess("Success", `${cs} registered successfully.`); }
     } catch (e) { showSuccess("Error", "Server unreachable."); }
     finally { document.body.classList.remove('loading-process'); }
 }
@@ -217,7 +248,10 @@ async function updateMapAndUI(data) {
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
+    // INCREASED LIMIT: Maintain last 20 coordinates
     trackCoords[callsign] = path || [];
+    if (trackCoords[callsign].length > 20) trackCoords[callsign] = trackCoords[callsign].slice(-20);
+
     if (trackPaths[callsign]) {
         trackPaths[callsign].setLatLngs(trackCoords[callsign]);
     } else if (trackCoords[callsign].length > 0) {
@@ -227,43 +261,17 @@ async function updateMapAndUI(data) {
     const currentAddr = await getAddress(pos[0], pos[1]);
     const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : new Date().toLocaleTimeString();
     updateRecentActivity(callsign, lat, lng, timeStr);
+    updateRegisteredList(data); // Sync sidebar
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
-
-    const deleteBtn = userRole === 'admin' ? `
-        <button onclick="deleteStation('${callsign}')" 
-                style="flex: 1; background: #111827; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">
-            <i class="fa-solid fa-trash"></i> Delete
-        </button>` : '';
-
-    // Check for iGate and adjust labels
+    const deleteBtn = userRole === 'admin' ? `<button onclick="deleteStation('${callsign}')" style="flex:1; background:#111827; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
     const isIGate = symbol === '/r';
     const ownerLabel = isIGate ? 'Station Custodian' : 'Owner/Responder';
     const showEmergencyInfo = !isIGate;
-
-    const emergencySection = showEmergencyInfo ? `
-        <b>Emergency:</b> ${emergencyName || 'N/A'}<br>
-        <b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
+    const emergencySection = showEmergencyInfo ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
     
-    const popupContent = `
-        <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
-            <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
-            <div style="font-size: 13px; margin-bottom: 8px;">
-                <b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br>
-                <b>Contact:</b> ${contactNum || 'N/A'}<br>
-                ${emergencySection} 
-            </div>
-            <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div>
-            <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
-                <b>Type:</b> ${typeName}<br><b>🕒 Last Seen:</b> ${timeStr}
-            </div>
-            <div style="display: flex; gap: 5px;">
-                <button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>
-                ${deleteBtn}
-            </div>
-        </div>
-    `;
+    const popupContent = `<div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;"><h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4><div style="font-size: 13px; margin-bottom: 8px;"><b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}<br>${emergencySection}</div><div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div><div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;"><b>Type:</b> ${typeName}<br><b>🕒 Last Seen:</b> ${timeStr}</div><div style="display: flex; gap: 5px;"><button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>${deleteBtn}</div></div>`;
 
     if (markers[callsign]) {
         markers[callsign].setLatLng(pos).setIcon(customIcon).setPopupContent(popupContent);
