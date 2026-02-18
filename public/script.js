@@ -84,17 +84,16 @@ function executeClear() {
 }
 
 // --- 5. DASHBOARD LISTENERS ---
-// --- UPDATED CONNECTION STATUS LISTENER ---
 channel.bind('connection-status', (data) => {
     const statusText = document.getElementById('status-text');
     const statusDot = document.getElementById('status-dot');
 
     if (data.status === "Online") {
         if (statusText) statusText.innerText = "Connected to APRS-IS";
-        if (statusDot) statusDot.style.color = "#22c55e"; // Success Green
+        if (statusDot) statusDot.style.color = "#22c55e"; 
     } else {
         if (statusText) statusText.innerText = "Connection Lost";
-        if (statusDot) statusDot.style.color = "#ef4444"; // Error Red
+        if (statusDot) statusDot.style.color = "#ef4444"; 
     }
 });
 
@@ -156,16 +155,19 @@ function registerStation() {
     
     const existingMarker = markers[cs];
     
-    // Check if it's already registered
     if (existingMarker && existingMarker.isRegistered) {
         showSuccess("Already Registered", `${cs} is already in the ResQLink database.`);
         return; 
     }
 
-    // CONDITIONAL FIELDS: Hide emergency info if symbol is iGate (/r)
     const isIGate = existingMarker && existingMarker.options.icon.options.symbolCode === '/r';
     
-    // Toggle the emergency contact input containers
+    // Update labels and placeholders for iGate
+    const ownerInput = document.getElementById('ownerName');
+    if (ownerInput) {
+        ownerInput.placeholder = isIGate ? "Name of Station Custodian" : "Name of Owner/Responder";
+    }
+
     const emergencyFields = [
         document.getElementById('emergencyName').parentElement,
         document.getElementById('emergencyNum').parentElement
@@ -235,7 +237,11 @@ async function updateMapAndUI(data) {
             <i class="fa-solid fa-trash"></i> Delete
         </button>` : '';
 
-    const showEmergencyInfo = symbol !== '/r';
+    // Check for iGate and adjust labels
+    const isIGate = symbol === '/r';
+    const ownerLabel = isIGate ? 'Station Custodian' : 'Owner/Responder';
+    const showEmergencyInfo = !isIGate;
+
     const emergencySection = showEmergencyInfo ? `
         <b>Emergency:</b> ${emergencyName || 'N/A'}<br>
         <b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
@@ -244,7 +250,7 @@ async function updateMapAndUI(data) {
         <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
             <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
             <div style="font-size: 13px; margin-bottom: 8px;">
-                <b>Owner:</b> ${ownerName || 'N/A'}<br>
+                <b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br>
                 <b>Contact:</b> ${contactNum || 'N/A'}<br>
                 ${emergencySection} 
             </div>
