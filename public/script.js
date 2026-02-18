@@ -2,6 +2,8 @@
 const pusher = new Pusher('899f970a7cf34c9a73a9', { cluster: 'ap1' });
 const channel = pusher.subscribe('aprs-channel');
 
+console.log("--- SCRIPT VERSION 3.0 LOADED ---");
+
 // 2. Map & State Setup
 var map = L.map('map').setView([13.5857, 124.2160], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
@@ -31,13 +33,12 @@ function getSymbolIcon(symbol) {
 // --- HELPER: ROBUST DATE PARSER ---
 function parseMongoDate(rawDate) {
     if (!rawDate) return null;
-    // Handle MongoDB Extended JSON format: { "$date": "2026-..." }
+    // Handle MongoDB Extended JSON: { "$date": "..." }
     if (typeof rawDate === 'object' && rawDate.$date) {
         return new Date(rawDate.$date);
     }
-    // Handle standard strings or Date objects
+    // Handle standard strings/dates
     const dateObj = new Date(rawDate);
-    // Check if valid
     return isNaN(dateObj.getTime()) ? null : dateObj;
 }
 
@@ -59,69 +60,6 @@ function closeConfirmModal() { document.getElementById('confirmModal').style.dis
 function closeDeleteModal() {
     document.getElementById('deleteConfirmModal').style.display = 'none';
     stationToDelete = null;
-}
-
-// --- REGISTERED CALLSIGNS LIST LOGIC ---
-function updateRegisteredList(data) {
-    const list = document.getElementById('registered-list');
-    if (!list || !data.isRegistered) return;
-
-    let existingItem = document.getElementById(`list-${data.callsign}`);
-    
-    // FIX: Use the helper function to reliably get the date object
-    const lastSeenDate = parseMongoDate(data.lastSeen);
-    if (data.callsign === "DW4AMU-10") {
-    console.log("iGate DB Time:", lastSeenDate);
-}
-    
-    // Online if seen in last 10 minutes (600,000 ms)
-    const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
-    const statusClass = isOnline ? 'online-dot' : 'offline-dot';
-
-    const itemHTML = `
-        <div class="station-item" id="list-${data.callsign}" onclick="focusStation('${data.callsign}')">
-            <div>
-                <b style="color: #38bdf8;">${data.callsign}</b><br>
-                <span style="font-size: 10px; color: #94a3b8;">${data.ownerName || 'Custodian'}</span>
-            </div>
-            <span class="status-indicator ${statusClass}"></span>
-        </div>
-    `;
-
-    if (existingItem) {
-        existingItem.outerHTML = itemHTML;
-    } else {
-        list.insertAdjacentHTML('beforeend', itemHTML);
-    }
-}
-
-function focusStation(callsign) {
-    if (markers[callsign]) {
-        map.setView(markers[callsign].getLatLng(), 15, { animate: true });
-        markers[callsign].openPopup();
-    }
-}
-
-// --- ORGANIZED DOWNLOAD LOGIC ---
-function downloadAllPaths() {
-    let csvContent = "data:text/csv;charset=utf-8,";
-    Object.keys(trackCoords).forEach(callsign => {
-        csvContent += `\n--- HISTORY FOR: ${callsign} ---\n`;
-        csvContent += "Latitude,Longitude,Date,Time\n";
-        
-        trackCoords[callsign].forEach(coord => {
-            const now = new Date();
-            csvContent += `${coord[0]},${coord[1]},${now.toLocaleDateString()},${now.toLocaleTimeString()}\n`;
-        });
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `ResQLink_Report_${new Date().toLocaleDateString()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 }
 
 async function deleteStation(callsign) {
@@ -155,6 +93,68 @@ function executeClear() {
         closeConfirmModal();
         showSuccess("Cleared", `History for ${pendingClearCallsign} reset.`);
     }
+}
+
+// --- REGISTERED CALLSIGNS LIST LOGIC ---
+function updateRegisteredList(data) {
+    const list = document.getElementById('registered-list');
+    if (!list || !data.isRegistered) return;
+
+    // DEBUGGING: Check ID and Time Source
+    if (data.callsign === "DW4AMU-10") {
+        console.log("DEBUG - iGate Source ID:", data._id);
+        console.log("DEBUG - iGate Raw Time:", data.lastSeen);
+    }
+
+    let existingItem = document.getElementById(`list-${data.callsign}`);
+    
+    // FIX: Use robust parser logic
+    const lastSeenDate = parseMongoDate(data.lastSeen);
+    const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
+    const statusClass = isOnline ? 'online-dot' : 'offline-dot';
+
+    const itemHTML = `
+        <div class="station-item" id="list-${data.callsign}" onclick="focusStation('${data.callsign}')">
+            <div>
+                <b style="color: #38bdf8;">${data.callsign}</b><br>
+                <span style="font-size: 10px; color: #94a3b8;">${data.ownerName || 'Custodian'}</span>
+            </div>
+            <span class="status-indicator ${statusClass}"></span>
+        </div>
+    `;
+
+    if (existingItem) {
+        existingItem.outerHTML = itemHTML;
+    } else {
+        list.insertAdjacentHTML('beforeend', itemHTML);
+    }
+}
+
+function focusStation(callsign) {
+    if (markers[callsign]) {
+        map.setView(markers[callsign].getLatLng(), 15, { animate: true });
+        markers[callsign].openPopup();
+    }
+}
+
+// --- ORGANIZED DOWNLOAD LOGIC ---
+function downloadAllPaths() {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    Object.keys(trackCoords).forEach(callsign => {
+        csvContent += `\n--- HISTORY FOR: ${callsign} ---\n`;
+        csvContent += "Latitude,Longitude,Date,Time\n";
+        trackCoords[callsign].forEach(coord => {
+            const now = new Date();
+            csvContent += `${coord[0]},${coord[1]},${now.toLocaleDateString()},${now.toLocaleTimeString()}\n`;
+        });
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `ResQLink_Report_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 // --- 5. DASHBOARD LISTENERS ---
@@ -276,9 +276,9 @@ async function updateMapAndUI(data) {
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     
-    // FIX: Use helper function to get date from DB object or string
+    // FIX: Robustly parse date for popup/activity log
     const dateObj = parseMongoDate(lastSeen);
-    // If date is valid, use it; otherwise say "No Signal" (Do NOT use new Date())
+    // If valid, use DB time. If invalid/null, say "No Signal" (NEVER fallback to current time)
     const timeStr = dateObj ? dateObj.toLocaleTimeString() : "No Signal";
     
     updateRecentActivity(callsign, lat, lng, timeStr);
@@ -322,7 +322,7 @@ window.onload = async () => {
 
         const history = await res.json();
         if (Array.isArray(history)) {
-            // FIX: Robust sorting using the helper
+            // FIX: Robust sorting using helper
             history.sort((a, b) => {
                 const dateA = parseMongoDate(a.lastSeen);
                 const dateB = parseMongoDate(b.lastSeen);
