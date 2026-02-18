@@ -222,14 +222,22 @@ async function updateMapAndUI(data) {
             <i class="fa-solid fa-trash"></i> Delete
         </button>` : '';
 
+// --- UPDATED POPUP CONTENT LOGIC ---
+
+// Check if the symbol is NOT an iGate (/r)
+    const showEmergencyInfo = symbol !== '/r';
+    
+    const emergencySection = showEmergencyInfo ? `
+        <b>Emergency:</b> ${emergencyName || 'N/A'}<br>
+        <b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
+    
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
             <h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4>
             <div style="font-size: 13px; margin-bottom: 8px;">
                 <b>Owner:</b> ${ownerName || 'N/A'}<br>
                 <b>Contact:</b> ${contactNum || 'N/A'}<br>
-                <b>Emergency:</b> ${emergencyName || 'N/A'}<br>
-                <b>Emergency #:</b> ${emergencyNum || 'N/A'}
+                ${emergencySection} 
             </div>
             <div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div>
             <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
