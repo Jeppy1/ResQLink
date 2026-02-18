@@ -1,4 +1,4 @@
-// 1. Initialize Pusher
+// 1. Initialize Pusher 
 const pusher = new Pusher('899f970a7cf34c9a73a9', { cluster: 'ap1' });
 const channel = pusher.subscribe('aprs-channel');
 
