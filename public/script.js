@@ -70,6 +70,9 @@ function updateRegisteredList(data) {
     
     // FIX: Use the helper function to reliably get the date object
     const lastSeenDate = parseMongoDate(data.lastSeen);
+    if (data.callsign === "DW4AMU-10") {
+    console.log("iGate DB Time:", lastSeenDate);
+}
     
     // Online if seen in last 10 minutes (600,000 ms)
     const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
