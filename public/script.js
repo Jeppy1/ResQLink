@@ -55,8 +55,10 @@ function updateRegisteredList(data) {
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     
-    // CHANGE: Robust date conversion for status check
-    const lastSeenDate = data.lastSeen ? new Date(data.lastSeen) : null;
+    // FIX: Extract date correctly from MongoDB $date object if it exists
+    const rawDate = data.lastSeen && data.lastSeen.$date ? data.lastSeen.$date : data.lastSeen;
+    const lastSeenDate = rawDate ? new Date(rawDate) : null;
+    
     const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
 
@@ -92,7 +94,6 @@ function downloadAllPaths() {
         csvContent += "Latitude,Longitude,Date,Time\n";
         
         trackCoords[callsign].forEach(coord => {
-            // CHANGE: Ensure download uses stored/real timestamps if you decide to add them to trackCoords later
             const now = new Date();
             csvContent += `${coord[0]},${coord[1]},${now.toLocaleDateString()},${now.toLocaleTimeString()}\n`;
         });
@@ -259,9 +260,10 @@ async function updateMapAndUI(data) {
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     
-    // CHANGE: Removed the "new Date().toLocaleTimeString()" fallback
-    // This ensures that if the iGate last talked at 9PM, it STAYS 9PM after refresh.
-    const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : "No Signal";
+    // FIX: Extract date correctly from DB for the activity log
+    const rawDate = lastSeen && lastSeen.$date ? lastSeen.$date : lastSeen;
+    const dateObj = rawDate ? new Date(rawDate) : null;
+    const timeStr = dateObj ? dateObj.toLocaleTimeString() : "No Signal";
     
     updateRecentActivity(callsign, lat, lng, timeStr);
     updateRegisteredList(data); 
@@ -297,7 +299,6 @@ window.onload = async () => {
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         
-        // CHANGE: Instantly update status to 'Connected' if the API response is successful.
         if (res.ok) {
             document.getElementById('status-text').innerText = "Connected to APRS-IS";
             document.getElementById('status-dot').style.color = "#22c55e";
@@ -305,8 +306,12 @@ window.onload = async () => {
 
         const history = await res.json();
         if (Array.isArray(history)) {
-            // Sort history to maintain time order
-            history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
+            // FIX: Accurate sorting for MongoDB date objects
+            history.sort((a, b) => {
+                const dateA = a.lastSeen && a.lastSeen.$date ? new Date(a.lastSeen.$date) : new Date(a.lastSeen);
+                const dateB = b.lastSeen && b.lastSeen.$date ? new Date(b.lastSeen.$date) : new Date(b.lastSeen);
+                return dateA - dateB;
+            });
             history.forEach(d => updateMapAndUI(d));
         }
     } catch (err) { console.error("Dashboard initialization failed:", err); }
