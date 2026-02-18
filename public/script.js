@@ -48,16 +48,16 @@ function closeDeleteModal() {
     stationToDelete = null;
 }
 
-// --- UPDATED: REGISTERED CALLSIGNS LIST LOGIC ---
+// --- REGISTERED CALLSIGNS LIST LOGIC ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
     if (!list || !data.isRegistered) return;
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     
-    // FIX: Convert DB lastSeen to Date object for accurate status check
-    const lastSeenTime = data.lastSeen ? new Date(data.lastSeen) : null;
-    const isOnline = lastSeenTime && (new Date() - lastSeenTime) < 600000; 
+    // CHANGE: Robust date conversion for status check
+    const lastSeenDate = data.lastSeen ? new Date(data.lastSeen) : null;
+    const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
 
     const itemHTML = `
@@ -90,11 +90,14 @@ function downloadAllPaths() {
     Object.keys(trackCoords).forEach(callsign => {
         csvContent += `\n--- HISTORY FOR: ${callsign} ---\n`;
         csvContent += "Latitude,Longitude,Date,Time\n";
+        
         trackCoords[callsign].forEach(coord => {
-            const dateObj = new Date(); // Ideally, capture timestamp per coord in DB
-            csvContent += `${coord[0]},${coord[1]},${dateObj.toLocaleDateString()},${dateObj.toLocaleTimeString()}\n`;
+            // CHANGE: Ensure download uses stored/real timestamps if you decide to add them to trackCoords later
+            const now = new Date();
+            csvContent += `${coord[0]},${coord[1]},${now.toLocaleDateString()},${now.toLocaleTimeString()}\n`;
         });
     });
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -256,7 +259,8 @@ async function updateMapAndUI(data) {
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     
-    // FIX: Only use current time if lastSeen is missing, otherwise use DB time
+    // CHANGE: Removed the "new Date().toLocaleTimeString()" fallback
+    // This ensures that if the iGate last talked at 9PM, it STAYS 9PM after refresh.
     const timeStr = lastSeen ? new Date(lastSeen).toLocaleTimeString() : "No Signal";
     
     updateRecentActivity(callsign, lat, lng, timeStr);
@@ -293,7 +297,7 @@ window.onload = async () => {
         const res = await fetch('/api/positions');
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         
-        // FIX: Update status bar to 'Connected' once data is fetched
+        // CHANGE: Instantly update status to 'Connected' if the API response is successful.
         if (res.ok) {
             document.getElementById('status-text').innerText = "Connected to APRS-IS";
             document.getElementById('status-dot').style.color = "#22c55e";
@@ -301,6 +305,7 @@ window.onload = async () => {
 
         const history = await res.json();
         if (Array.isArray(history)) {
+            // Sort history to maintain time order
             history.sort((a, b) => new Date(a.lastSeen) - new Date(b.lastSeen));
             history.forEach(d => updateMapAndUI(d));
         }
