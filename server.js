@@ -167,6 +167,8 @@ function connectAPRS() {
 }
 connectAPRS();
 
+// --- UPDATED DATA PROCESSING (20 COORDINATES LIMIT) ---
+
 client.on('data', async (data) => {
     if (connResQLink.readyState !== 1 || connTest.readyState !== 1) return;
     const rawPacket = data.toString();
@@ -181,14 +183,37 @@ client.on('data', async (data) => {
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
+            // UPDATED: Changed $slice to -20 to store more historical pathing data
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
-                { lat: lat.toFixed(4), lng: lng.toFixed(4), lastSeen: new Date(),
-                  $push: { path: { $each: [newCoords], $slice: -5 } } },
+                { 
+                    lat: lat.toFixed(4), 
+                    lng: lng.toFixed(4), 
+                    lastSeen: new Date(),
+                    $push: { 
+                        path: { 
+                            $each: [newCoords], 
+                            $slice: -20  // Keeps the 20 most recent coordinate pairs
+                        } 
+                    } 
+                },
                 { new: true }
             );
-            await TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4),
-                  $push: { path: { $each: [newCoords], $slice: -5 } } });
+
+            // Sync with Test database
+            await TrackerTest.findOneAndUpdate(
+                { callsign: callsign }, 
+                { 
+                    lat: lat.toFixed(4), 
+                    lng: lng.toFixed(4),
+                    $push: { 
+                        path: { 
+                            $each: [newCoords], 
+                            $slice: -20 
+                        } 
+                    } 
+                }
+            );
             
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), callsign });
         }
