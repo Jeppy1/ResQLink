@@ -14,13 +14,15 @@ body, html {
     width: 280px; background: #1e293b; padding: 20px;
     box-shadow: -2px 0 15px rgba(0,0,0,0.5);
     display: flex; flex-direction: column;
-    z-index: 1000; color: white; overflow-y: auto;
+    z-index: 1000; color: white;
 }
-.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.logo { max-width: 160px; height: auto; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.2)); }
 
-/* --- 3. ROLE & STATUS --- */
-.user-info { margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.logo { max-width: 140px; height: auto; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.2)); }
+
+/* --- 3. ROLE, STATUS & TOP BUTTONS --- */
+.user-info { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; } /* Updated for button spacing */
+
 .role-badge {
     padding: 6px 14px; border-radius: 50px;
     font-size: 10px; font-weight: 800;
@@ -30,30 +32,43 @@ body, html {
 .role-admin { background-color: #22c55e !important; color: white; }
 .role-viewer { background-color: #3b82f6 !important; color: white; }
 
+/* Download button relocated next to badge */
 .btn-download {
     background: #334155; border: 1px solid rgba(56, 189, 248, 0.2);
     color: #38bdf8; width: 32px; height: 32px;
     padding: 0; border-radius: 50%;
-    font-size: 14px; display: none; /* Shown via JS next to badge */
+    font-size: 14px; display: flex;
     align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
 }
 .btn-download:hover { background: #38bdf8; color: white; }
 
-/* --- 4. CONTROLS & SIDEBAR LISTS --- */
+.status-box {
+    padding: 10px; background: rgba(15, 23, 42, 0.5);
+    border-radius: 8px; margin-bottom: 15px; font-size: 12px;
+    display: flex; align-items: center; gap: 8px;
+}
+
+/* --- 4. CONTROLS & REGISTERED LIST --- */
 .control-group input {
     width: 100%; padding: 12px; margin-bottom: 10px;
     background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px; box-sizing: border-box; color: white;
 }
 .button-row { display: flex; gap: 8px; margin-bottom: 20px; }
-button {
-    flex: 1; padding: 10px; background-color: #0284c7;
-    color: white; border: none; border-radius: 8px;
-    cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s;
-}
-button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
 
-#registered-list { max-height: 35vh; overflow-y: auto; margin-bottom: 15px; padding-right: 5px; }
+/* Headcount Alignment */
+.registered-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; font-size: 13px; font-weight: 600;
+}
+
+#registered-list { 
+    max-height: 38vh; /* Scalable height for many callsigns */
+    overflow-y: auto; 
+    margin-bottom: 20px; 
+    padding-right: 5px; 
+}
+
 .station-item {
     display: flex; justify-content: space-between; align-items: center;
     padding: 10px; background: rgba(15, 23, 42, 0.4);
@@ -64,7 +79,7 @@ button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
 .online-dot { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
 .offline-dot { background-color: #64748b; }
 
-/* --- 5. LOGIN PAGE (RESTORED CENTERED LAYOUT & ICON POSITIONING) --- */
+/* --- 5. LOGIN PAGE (PERFECT - UNTOUCHED) --- */
 .login-body {
     height: 100vh; display: flex;
     align-items: center; justify-content: center;
@@ -77,44 +92,24 @@ button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
     text-align: center; border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .login-logo { width: 360px; margin: 0 auto 30px auto; display: block; }
-
 .input-group { position: relative; margin-bottom: 20px; }
-
-/* Position Icons Inside Login Boxes */
 .input-group i:first-child {
-    position: absolute;
-    left: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #38bdf8; /* Visible light blue */
-    font-size: 16px;
-    z-index: 10;
-    pointer-events: none;
+    position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+    color: #38bdf8; font-size: 16px; z-index: 10; pointer-events: none;
 }
-
 .input-group input {
-    width: 100%; padding: 12px 10px 12px 45px; /* 45px left padding keeps text off the icon */
+    width: 100%; padding: 12px 10px 12px 45px; 
     background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px; color: white; box-sizing: border-box;
-    outline: none;
+    border-radius: 10px; color: white; box-sizing: border-box; outline: none;
 }
-
 .input-group input:focus { border-color: #38bdf8; }
-
 #togglePassword {
-    position: absolute; right: 15px; top: 50%;
-    transform: translateY(-50%); cursor: pointer;
-    color: #38bdf8; z-index: 10;
+    position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+    cursor: pointer; color: #38bdf8; z-index: 10;
 }
-
-/* Authorized Personnel Text to Red */
 .login-footer {
-    margin-top: 20px;
-    font-size: 12px;
-    color: #ef4444; /* Explicit Red */
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-top: 20px; font-size: 12px; color: #ef4444; 
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
 }
 
 /* --- 6. REGISTRATION MODAL --- */
@@ -142,7 +137,14 @@ button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
 }
 .input-field select option { background: #1e293b; color: white; }
 
-/* --- 7. ACTIVITY TABLE --- */
+/* --- 7. BUTTONS & ACTIVITY TABLE --- */
+button {
+    flex: 1; padding: 10px; background-color: #0284c7;
+    color: white; border: none; border-radius: 8px;
+    cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s;
+}
+button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
+
 .history-container { margin-top: auto; padding-top: 20px; }
 .activity-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .activity-table th { text-align: left; color: #38bdf8; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
