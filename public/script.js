@@ -69,18 +69,34 @@ function toggleRegFields() {
     }
 }
 
-function registerStation() {
+async function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
-    if (!cs) return alert("Enter callsign.");
-    
-    // NEW: Check if callsign already exists in the markers object before opening modal
+    if (!cs) return alert("Please enter a callsign first.");
+
+    // 1. LOCAL CHECK: Immediate check against stations already on your map
     if (markers[cs] && markers[cs].isRegistered) {
-        return showSuccess("Duplicate Entry", `Callsign ${cs} is already registered in the database.`);
+        return showSuccess("Already Registered", `Callsign ${cs} is already registered to ${markers[cs].ownerName || 'another responder'}.`);
     }
-    
-    document.getElementById('modalCallsignDisplay').innerText = cs;
-    document.getElementById('regModal').style.display = 'flex'; 
-    toggleRegFields();
+
+    // 2. SERVER CHECK: Verify with the database for real-time accuracy
+    try {
+        const res = await fetch(`/api/check-callsign/${cs}`);
+        const data = await res.json();
+
+        if (data.exists) {
+            // If the server confirms it exists, stop here
+            return showSuccess("Already Registered", `Callsign ${cs} is already registered to ${data.ownerName}.`);
+        }
+
+        // 3. PROCEED: Only show the modal if the callsign is truly available
+        document.getElementById('modalCallsignDisplay').innerText = cs;
+        document.getElementById('regModal').style.display = 'flex'; 
+        toggleRegFields();
+
+    } catch (e) {
+        console.error("Validation error:", e);
+        alert("Could not verify callsign availability. Please try again.");
+    }
 }
 
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
