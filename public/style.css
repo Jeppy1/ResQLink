@@ -490,43 +490,33 @@ button:hover {
 /* --- Mobile Interface Logic (Tablets and Phones) --- */
 @media (max-width: 768px) {
     /* Update these inside your @media (max-width: 768px) block */
-.side-panel {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 85%; 
-    height: 100dvh; 
-    background: #0f172a;
-    z-index: 2000;
-    
-    /* Ensure flex column for internal alignment */
-    display: flex;
-    flex-direction: column;
-    
-    /* Smooth movement and scrolling */
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    overflow-y: auto;
-    box-shadow: 5px 0 15px rgba(0,0,0,0.5);
-    
-    /* Panel is interactive when visible */
-    pointer-events: all;
-    
-    /* Force the starting position */
-    transform: translateX(0);
-}
+    .side-panel {
+        position: fixed;
+        /* Ensure it starts at 0 */
+        left: 0; 
+        top: 0;
+        /* Increase width slightly for better mobile feel */
+        width: 90%; 
+        /* Use dvh to ignore browser bars */
+        height: 100dvh; 
+        background: #0f172a;
+        z-index: 2000;
+        display: flex;
+        flex-direction: column;
+        /* Force hardware acceleration for smooth movement */
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transform: translateX(0); 
+        box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+    }
 
-/* Modified hidden state */
-.side-panel.minimized {
-    /* translate3d uses hardware acceleration for smoother mobile performance */
-    transform: translate3d(-100%, 0, 0) !important;
-    
-    /* Hide from screen readers and prevent any interaction while hidden */
-    pointer-events: none;
-    visibility: hidden;
-    
-    /* Box shadow removal prevents a "ghost line" on the edge of the screen */
-    box-shadow: none;
-}
+    /* Standardized hidden state - THIS IS THE KEY FIX */
+    .side-panel.minimized {
+        /* Force it fully off-screen */
+        transform: translate3d(-100%, 0, 0) !important;
+        /* Stop it from blocking map clicks */
+        pointer-events: none;
+        visibility: hidden;
+    }
 
     /* Floating Window Logic: WORKS ONLY IF CONTAINER IS AFTER SIDE-PANEL IN HTML */
     .side-panel.minimized ~ .mobile-floating-container {
