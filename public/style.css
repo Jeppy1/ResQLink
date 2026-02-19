@@ -434,22 +434,30 @@ button:hover {
     gap: 8px;
 }
 
-/* Minimalist Icon-only style */
-.btn-download {
-    background: none; /* Removed background */
-    border: none;     /* Removed border */
-    color: #38bdf8;   /* ResQLink Blue */
-    font-size: 20px;  /* Sized slightly larger for visibility */
+/* The New Uniform Export Button */
+.btn-uniform-export {
+    background-color: #0284c7; /* Same as your Track/Register blue */
+    color: white;
+    border: none;
+    padding: 8px 15px; /* Matches the vertical feel of your main buttons */
+    border-radius: 8px;
     cursor: pointer;
-    padding: 0;
-    margin: 0;
+    font-weight: bold;
+    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s, transform 0.2s;
+    gap: 8px;
+    transition: 0.2s ease;
+    flex: 0 1 auto; /* Prevents it from growing too large */
+    min-width: 90px;
 }
 
-.btn-download:hover {
-    color: #ffffff;   /* Glow white on hover */
-    /* transform: scale(1.1); Subtle grow effect */
+.btn-uniform-export:hover {
+    background-color: #0ea5e9; /* Same hover effect */
+    transform: translateY(-1px);
+}
+
+.btn-uniform-export i {
+    font-size: 16px; /* Scales the CSV icon to match button text */
 }
