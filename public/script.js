@@ -73,7 +73,6 @@ function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
     if (!cs) return alert("Enter callsign.");
     if (markers[cs] && markers[cs].isRegistered) return showSuccess("Already Registered", `${cs} is in database.`);
-    
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
     toggleRegFields();
@@ -84,9 +83,6 @@ function closeModal() { document.getElementById('regModal').style.display = 'non
 async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
     const type = document.getElementById('stationType').value;
-    const symbol = (type === 'igate') ? '/r' : '/[';
-    const details = (type === 'igate') ? 'Stationary iGate' : 'Mobile Responder';
-
     const data = {
         callsign: cs,
         lat: markers[cs] ? markers[cs].getLatLng().lat : null,
@@ -95,8 +91,8 @@ async function submitRegistration() {
         contactNum: document.getElementById('contactNum').value,
         emergencyName: (type === 'igate') ? "N/A" : document.getElementById('emergencyName').value,
         emergencyNum: (type === 'igate') ? "N/A" : document.getElementById('emergencyNum').value,
-        symbol: symbol,
-        details: details
+        symbol: (type === 'igate') ? '/r' : '/[',
+        details: (type === 'igate') ? 'Stationary iGate' : 'Mobile Responder'
     };
 
     if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
@@ -113,29 +109,18 @@ async function submitRegistration() {
     finally { document.body.classList.remove('loading-process'); }
 }
 
-// --- STATION DELETION (FIXED URL LOGIC) ---
 async function deleteStation(callsign) {
-    stationToDelete = callsign.trim(); // Clean the callsign
+    stationToDelete = callsign.trim();
     document.getElementById('deleteCallsignDisplay').innerText = stationToDelete;
     document.getElementById('deleteConfirmModal').style.display = 'flex';
-    
     const confirmBtn = document.getElementById('confirmDeleteBtn');
     confirmBtn.onclick = null; 
-
     confirmBtn.onclick = async () => {
         if (!stationToDelete) return;
-        const target = stationToDelete;
-
         document.body.classList.add('loading-process');
         try {
-            // FIXED: Ensure absolute path and no extra characters
-            const response = await fetch(`/api/delete-station/${target}`, { method: 'DELETE' });
-            if (response.ok) { 
-                closeDeleteModal(); 
-                showSuccess("Deleted", `${target} removed.`); 
-            } else {
-                alert("Delete failed on server.");
-            }
+            const response = await fetch(`/api/delete-station/${stationToDelete}`, { method: 'DELETE' });
+            if (response.ok) { closeDeleteModal(); showSuccess("Deleted", `${stationToDelete} removed.`); }
         } catch (e) { console.error(e); }
         finally { document.body.classList.remove('loading-process'); }
     };
@@ -144,13 +129,19 @@ async function deleteStation(callsign) {
 // --- CORE MAP LOGIC ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
+    const headerCount = document.getElementById('registered-header-count');
+    
     if (!list || !data.isRegistered) return;
+
+    // Update real-time headcount count
+    if (data.totalRegistered && headerCount) {
+        headerCount.innerText = `(${data.totalRegistered})`;
+    }
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     const lastSeenDate = parseMongoDate(data.lastSeen);
     const hasSignal = data.lat && data.lng && data.lat !== "null";
     const isOnline = hasSignal && lastSeenDate && (new Date() - lastSeenDate) < 600000; 
-    
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
     const subText = hasSignal ? (data.ownerName || 'Custodian') : "Waiting for signal...";
 
@@ -171,16 +162,13 @@ function focusStation(callsign) {
     if (markers[callsign]) {
         map.setView(markers[callsign].getLatLng(), 15, { animate: true });
         markers[callsign].openPopup();
-    } else {
-        alert(`${callsign} has not sent a signal yet.`);
-    }
+    } else { alert(`${callsign} has not sent a signal yet.`); }
 }
 
 function downloadAllPaths() {
     let csvContent = "data:text/csv;charset=utf-8,";
     Object.keys(trackCoords).forEach(callsign => {
-        csvContent += `\n--- HISTORY FOR: ${callsign} ---\n`;
-        csvContent += "Latitude,Longitude,Date,Time\n";
+        csvContent += `\n--- HISTORY FOR: ${callsign} ---\nLatitude,Longitude,Date,Time\n`;
         trackCoords[callsign].forEach(coord => {
             const now = new Date();
             csvContent += `${coord[0]},${coord[1]},${now.toLocaleDateString()},${now.toLocaleTimeString()}\n`;
@@ -230,61 +218,39 @@ function trackCallsign() {
     if (markers[input]) { map.setView(markers[input].getLatLng(), 15, { animate: true }); markers[input].openPopup(); }
 }
 
-function handleLogout() { 
-    localStorage.removeItem('userRole'); 
-    window.location.href = '/api/logout'; 
-}
+function handleLogout() { localStorage.removeItem('userRole'); window.location.href = '/api/logout'; }
 
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     updateRegisteredList(data); 
 
     if (!lat || !lng || lat === "null" || lng === "null") return;
-
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
     trackCoords[callsign] = path || [];
-    if (trackCoords[callsign].length > 20) trackCoords[callsign] = trackCoords[callsign].slice(-20);
-
-    if (trackPaths[callsign]) {
-        trackPaths[callsign].setLatLngs(trackCoords[callsign]);
-    } else if (trackCoords[callsign].length > 0) {
-        trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10', opacity: 0.6 }).addTo(map);
-    }
+    if (trackPaths[callsign]) { trackPaths[callsign].setLatLngs(trackCoords[callsign]); } 
+    else if (trackCoords[callsign].length > 0) { trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10', opacity: 0.6 }).addTo(map); }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
-    const dateObj = parseMongoDate(lastSeen);
-    const timeStr = dateObj ? dateObj.toLocaleTimeString() : "Receiving...";
+    const timeStr = parseMongoDate(lastSeen) ? parseMongoDate(lastSeen).toLocaleTimeString() : "Receiving...";
     updateRecentActivity(callsign, lat, lng, timeStr);
 
-    const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
     const deleteBtn = userRole === 'admin' ? `<button onclick="deleteStation('${callsign}')" style="flex:1; background:#111827; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
-    const isIGate = symbol === '/r';
-    const ownerLabel = isIGate ? 'Station Custodian' : 'Owner/Responder';
-    const emergencySection = !isIGate ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
-    const popupContent = `<div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;"><h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4><div style="font-size: 13px; margin-bottom: 8px;"><b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}<br>${emergencySection}</div><div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div><div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;"><b>Type:</b> ${typeName}<br><b>🕒 Last Seen:</b> ${timeStr}</div><div style="display: flex; gap: 5px;"><button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>${deleteBtn}</div></div>`;
+    const ownerLabel = symbol === '/r' ? 'Station Custodian' : 'Owner/Responder';
+    const emergencySection = symbol !== '/r' ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
+    const popupContent = `<div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;"><h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4><div style="font-size: 13px; margin-bottom: 8px;"><b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}<br>${emergencySection}</div><div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div><div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;">🕒 Last Seen: ${timeStr}</div><div style="display: flex; gap: 5px;"><button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>${deleteBtn}</div></div>`;
 
-    if (markers[callsign]) {
-        markers[callsign].setLatLng(pos).setIcon(customIcon).setPopupContent(popupContent);
-        markers[callsign].isRegistered = isRegistered;
-    } else {
-        markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
-        markers[callsign].isRegistered = isRegistered;
-    }
+    if (markers[callsign]) { markers[callsign].setLatLng(pos).setIcon(customIcon).setPopupContent(popupContent); } 
+    else { markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent); }
+    markers[callsign].isRegistered = isRegistered;
 }
 
-// --- PUSHER LISTENERS ---
-channel.bind('connection-status', (data) => {
-    const dot = document.getElementById('status-dot');
-    const text = document.getElementById('status-text');
-    if (data.status === "Online") { text.innerText = "Connected to APRS-IS"; dot.style.color = "#22c55e"; } 
-    else { text.innerText = "Connection Lost"; dot.style.color = "#ef4444"; }
-});
-
 channel.bind('delete-data', (data) => {
-    const { callsign } = data;
+    const { callsign, totalRegistered } = data;
+    const headerCount = document.getElementById('registered-header-count');
+    if (headerCount && totalRegistered !== undefined) { headerCount.innerText = `(${totalRegistered})`; }
     if (markers[callsign]) {
         map.removeLayer(markers[callsign]);
         if (trackPaths[callsign]) map.removeLayer(trackPaths[callsign]);
@@ -301,15 +267,20 @@ channel.bind('new-data', updateMapAndUI);
 window.onload = async () => {
     try {
         userRole = localStorage.getItem('userRole') || 'viewer'; 
-        if (document.getElementById('role-text')) {
-            document.getElementById('role-text').innerText = userRole === 'admin' ? "System Admin" : "Field Staff";
-            document.getElementById('role-badge').classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
+        const badge = document.getElementById('role-badge');
+        const dlBtn = document.querySelector('.btn-download');
+        if (badge && dlBtn) {
+            badge.parentNode.insertBefore(dlBtn, badge.nextSibling);
+            dlBtn.style.marginLeft = "10px";
+            dlBtn.style.marginTop = "0";
+            dlBtn.style.display = "flex"; // Ensure it shows
         }
         const res = await fetch(`/api/positions?t=${Date.now()}`);
         if (res.status === 401) { window.location.href = '/login.html'; return; }
-        if (res.ok) { document.getElementById('status-text').innerText = "Connected to APRS-IS"; document.getElementById('status-dot').style.color = "#22c55e"; }
         const history = await res.json();
         if (Array.isArray(history)) {
+            const headerCount = document.getElementById('registered-header-count');
+            if (headerCount) headerCount.innerText = `(${history.length})`;
             history.sort((a, b) => (parseMongoDate(a.lastSeen) || 0) - (parseMongoDate(b.lastSeen) || 0));
             history.forEach(d => updateMapAndUI(d));
         }
