@@ -150,7 +150,6 @@ app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
 // --- 5. APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
-    // SWITCHED TO GLOBAL ROTATION FOR BETTER RELIABILITY
     client.connect(14580, "rotate.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
         console.log("Connected to rotate.aprs2.net");
@@ -159,7 +158,6 @@ function connectAPRS() {
 }
 connectAPRS();
 
-// Re-establish connection if it drops
 client.on('close', () => {
     console.log("APRS Connection closed. Retrying in 5s...");
     setTimeout(connectAPRS, 5000);
@@ -184,15 +182,14 @@ function extractPacketTime(rawPacket) {
 
 client.on('data', async (data) => {
     const rawPacket = data.toString();
-    
-    // DEBUG LOG: See every packet coming from the Philippines
-    if (rawPacket.startsWith('#')) return; // Ignore server messages
+    if (rawPacket.startsWith('#')) return; 
     console.log("RX:", rawPacket.trim());
 
     if (connResQLink.readyState !== 1) return;
 
-    // --- 🛡️ GHOST BLOCKER (TEMPORARILY DISABLED FOR DEBUGGING) ---
-    // if (rawPacket.includes("TCPIP*")) return; 
+    // --- 🛡️ IMPROVED GHOST BLOCKER ---
+    // Blocks TCPIP unless the callsign is your specific iGate
+    if (rawPacket.includes("TCPIP*") && !rawPacket.includes("DW4AMU-10")) return; 
 
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -223,7 +220,9 @@ client.on('data', async (data) => {
             );
 
             TrackerTest.findOneAndUpdate({ callsign: callsign }, { lat: lat.toFixed(4), lng: lng.toFixed(4) }).exec();
-            pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), callsign });
+            
+            // Trigger with full updated object so frontend has all metadata
+            pusher.trigger("aprs-channel", "new-data", updated); 
         }
     }
 });
