@@ -55,21 +55,17 @@ function toggleRegFields() {
     const ownerInput = document.getElementById('ownerName');
     const contactInput = document.getElementById('contactNum');
     const emergencyFields = document.getElementById('tracker-only-fields');
-    const saveBtn = document.querySelector('#regModal .btn-confirm'); // Select the Save button
+    const saveBtn = document.querySelector('#regModal .btn-confirm');
 
     if (type === 'igate') {
         ownerInput.placeholder = "Station Custodian (e.g. MDRRMO)";
         contactInput.placeholder = "Hotline / Office Number";
         emergencyFields.style.display = 'none';
-        
-        // Change button text for iGate
         if (saveBtn) saveBtn.innerText = "Save Station";
     } else {
         ownerInput.placeholder = "Name of Owner/Responder";
         contactInput.placeholder = "Personal Contact Number";
         emergencyFields.style.display = 'block';
-        
-        // Change button text back for Tracker
         if (saveBtn) saveBtn.innerText = "Save Tracker";
     }
 }
@@ -81,7 +77,7 @@ function registerStation() {
     
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
-    toggleRegFields(); // Initialize placeholders and button text
+    toggleRegFields();
 }
 
 function closeModal() { document.getElementById('regModal').style.display = 'none'; }
@@ -90,14 +86,14 @@ async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
     const type = document.getElementById('stationType').value;
     
-    // Auto-set symbol to /r if iGate, otherwise default human
     const symbol = (type === 'igate') ? '/r' : '/[';
     const details = (type === 'igate') ? 'Stationary iGate' : 'Mobile Responder';
 
     const data = {
         callsign: cs,
-        lat: markers[cs] ? markers[cs].getLatLng().lat : 13.5857,
-        lng: markers[cs] ? markers[cs].getLatLng().lng : 124.2160,
+        // UPDATED: Start with null coordinates to avoid clustering at Virac center
+        lat: null,
+        lng: null,
         ownerName: document.getElementById('ownerName').value,
         contactNum: document.getElementById('contactNum').value,
         emergencyName: (type === 'igate') ? "N/A" : document.getElementById('emergencyName').value,
@@ -115,23 +111,26 @@ async function submitRegistration() {
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(data) 
         });
-        if (res.ok) { closeModal(); showSuccess("Success", `${cs} registered successfully.`); }
+        if (res.ok) { 
+            closeModal(); 
+            showSuccess("Success", `${cs} registered. Waiting for first signal to appear on map.`); 
+        }
     } catch (e) { showSuccess("Error", "Server unreachable."); }
     finally { document.body.classList.remove('loading-process'); }
 }
 
-// --- STATION DELETION (FIXED NULL BUG) ---
+// --- STATION DELETION ---
 async function deleteStation(callsign) {
     stationToDelete = callsign;
     document.getElementById('deleteCallsignDisplay').innerText = callsign;
     document.getElementById('deleteConfirmModal').style.display = 'flex';
     
     const confirmBtn = document.getElementById('confirmDeleteBtn');
-    confirmBtn.onclick = null; // Prevent event stacking
+    confirmBtn.onclick = null;
 
     confirmBtn.onclick = async () => {
         if (!stationToDelete) return;
-        const target = stationToDelete; // Local capture to avoid 'null removed'
+        const target = stationToDelete;
 
         document.body.classList.add('loading-process');
         try {
@@ -152,14 +151,19 @@ function updateRegisteredList(data) {
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     const lastSeenDate = parseMongoDate(data.lastSeen);
-    const isOnline = lastSeenDate && (new Date() - lastSeenDate) < 600000; 
+    
+    // Check if truly online or just a new registration waiting for signal
+    const hasSignal = data.lat && data.lng && data.lat !== "null";
+    const isOnline = hasSignal && lastSeenDate && (new Date() - lastSeenDate) < 600000; 
+    
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
+    const subText = hasSignal ? (data.ownerName || 'Custodian') : "Waiting for signal...";
 
     const itemHTML = `
         <div class="station-item" id="list-${data.callsign}" onclick="focusStation('${data.callsign}')">
             <div>
                 <b style="color: #38bdf8;">${data.callsign}</b><br>
-                <span style="font-size: 10px; color: #94a3b8;">${data.ownerName || 'Custodian'}</span>
+                <span style="font-size: 10px; color: #94a3b8;">${subText}</span>
             </div>
             <span class="status-indicator ${statusClass}"></span>
         </div>
@@ -172,6 +176,8 @@ function focusStation(callsign) {
     if (markers[callsign]) {
         map.setView(markers[callsign].getLatLng(), 15, { animate: true });
         markers[callsign].openPopup();
+    } else {
+        alert(`${callsign} has not sent a signal yet.`);
     }
 }
 
@@ -238,9 +244,20 @@ function handleLogout() {
 
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
+    
+    // 1. UPDATE SIDEBAR: Always add/update the list regardless of location
+    updateRegisteredList(data); 
+
+    // 2. STOP LOGIC: If no coordinates exist, do not draw marker or path
+    if (!lat || !lng || lat === "null" || lng === "null") {
+        console.log(`[MAP] ${callsign} registered but waiting for first signal.`);
+        return; 
+    }
+
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
+    // 3. Update Paths
     trackCoords[callsign] = path || [];
     if (trackCoords[callsign].length > 20) trackCoords[callsign] = trackCoords[callsign].slice(-20);
 
@@ -250,12 +267,12 @@ async function updateMapAndUI(data) {
         trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10', opacity: 0.6 }).addTo(map);
     }
 
+    // 4. Address and UI Polish
     const currentAddr = await getAddress(pos[0], pos[1]);
     const dateObj = parseMongoDate(lastSeen);
-    const timeStr = dateObj ? dateObj.toLocaleTimeString() : "No Signal";
+    const timeStr = dateObj ? dateObj.toLocaleTimeString() : "Receiving...";
     
     updateRecentActivity(callsign, lat, lng, timeStr);
-    updateRegisteredList(data); 
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
@@ -303,7 +320,7 @@ channel.bind('delete-data', (data) => {
 
 channel.bind('new-data', updateMapAndUI);
 
-// --- WINDOW LOAD (CACHE BUSTING) ---
+// --- WINDOW LOAD ---
 window.onload = async () => {
     try {
         userRole = localStorage.getItem('userRole') || 'viewer'; 
@@ -312,7 +329,6 @@ window.onload = async () => {
             document.getElementById('role-badge').classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
         
-        // CACHE BUSTING: Force server to provide fresh data
         const res = await fetch(`/api/positions?t=${Date.now()}`);
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         
@@ -328,6 +344,7 @@ window.onload = async () => {
                 const dateB = parseMongoDate(b.lastSeen);
                 return (dateA || 0) - (dateB || 0);
             });
+            // Every callsign gets updated, but only those with signal will hit the map
             history.forEach(d => updateMapAndUI(d));
         }
     } catch (err) { console.error("Initialization failed:", err); }
