@@ -451,5 +451,5 @@ button:hover {
 
 .btn-download:hover {
     color: #ffffff;   /* Glow white on hover */
-    transform: scale(1.1); /* Subtle grow effect */
+    /* transform: scale(1.1); Subtle grow effect */
 }
