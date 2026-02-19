@@ -351,23 +351,6 @@ async function updateMapAndUI(data) {
         }).addTo(map);
     }
 
-    // Toggle Sidebar Function
-function toggleSidebar() {
-    const panel = document.querySelector('.side-panel');
-    const btn = document.getElementById('mobile-sidebar-toggle');
-    
-    if (!panel) return console.error("Side panel missing!");
-
-    // Toggle the class
-    panel.classList.toggle('minimized');
-    
-    // Update the arrow icon immediately
-    if (btn) {
-        btn.innerHTML = panel.classList.contains('minimized') 
-            ? '<i class="fa-solid fa-chevron-right"></i>' 
-            : '<i class="fa-solid fa-chevron-left"></i>';
-    }
-}
 
 // Update the Floating Window
 function updateFloatingWindow(data) {
@@ -425,6 +408,22 @@ function updateFloatingWindow(data) {
     }
 }
 
+// This must be at the very bottom of script.js or outside any other { } blocks
+function toggleSidebar() {
+    const panel = document.querySelector('.side-panel');
+    const btn = document.getElementById('mobile-sidebar-toggle');
+    
+    if (!panel || !btn) return;
+
+    panel.classList.toggle('minimized');
+    
+    // Update button icon based on state
+    if (panel.classList.contains('minimized')) {
+        btn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+    }
+}
 // --- PUSHER LISTENERS ---
 channel.bind('connection-status', (data) => {
     const dot = document.getElementById('status-dot');
