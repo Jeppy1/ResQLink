@@ -343,18 +343,20 @@ async function updateMapAndUI(data) {
     // Toggle Sidebar Function
 function toggleSidebar() {
     const panel = document.querySelector('.side-panel');
-    const toggleBtn = document.getElementById('sidebar-toggle');
-    const floatList = document.getElementById('mobile-floating-list');
+    // FIXED: Using the correct ID from your index.html
+    const btn = document.getElementById('mobile-sidebar-toggle'); 
     
+    if (!panel || !btn) return; // Safety check
+
     panel.classList.toggle('minimized');
     
     // Rotate the arrow icon depending on state
     if (panel.classList.contains('minimized')) {
-        toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-        if (floatList) floatList.style.display = 'block';
+        // Points RIGHT when hidden so you know how to pull it back
+        btn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
     } else {
-        toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-        if (floatList) floatList.style.display = 'none';
+        // Points LEFT when open to indicate "close"
+        btn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
     }
 }
 
