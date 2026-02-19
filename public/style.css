@@ -496,29 +496,32 @@ button:hover {
         z-index: 2000;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         width: 85%; 
-        /* UPDATED: Dynamic viewport height to fit mobile screens perfectly */
         height: 100dvh; 
         overflow-y: auto; 
         background: #0f172a;
         display: flex;
         flex-direction: column;
         box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+        /* ADDED: Ensures clicks pass through to map when panel is open/closed correctly */
+        pointer-events: all; 
     }
 
     /* Standardized hidden state */
     .side-panel.minimized {
         transform: translateX(-100%) !important;
+        /* FIXED: Prevents invisible panel from blocking map clicks when hidden */
+        pointer-events: none; 
     }
 
-    /* Floating Window Logic: Show ONLY when the side-panel is minimized */
+    /* Floating Window Logic: WORKS ONLY IF CONTAINER IS AFTER SIDE-PANEL IN HTML */
     .side-panel.minimized ~ .mobile-floating-container {
-        display: block;
-        animation: fadeIn 0.4s ease forwards; /* Reference to keyframes below */
+        display: block !important;
+        animation: fadeIn 0.4s ease forwards;
     }
 
     .mobile-floating-container {
         display: none; 
-        position: fixed;
+        position: fixed; /* Changed to fixed for better mobile stability */
         top: 20px;
         right: 20px;
         width: 130px;
@@ -530,16 +533,8 @@ button:hover {
         overflow-y: auto;
         backdrop-filter: blur(8px);
         box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-    }
-
-    .floating-item {
-        padding: 12px 8px;
-        font-size: 12px;
-        color: #38bdf8;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
-        text-align: center;
-        font-weight: bold;
-        cursor: pointer;
+        /* ADDED: Allow clicking items in the floating list */
+        pointer-events: all; 
     }
 
     /* The Hamburger / Toggle Button */
@@ -550,7 +545,7 @@ button:hover {
         position: fixed;
         bottom: 30px;
         left: 20px;
-        z-index: 3000; /* Stays on top of minimized sidebar */
+        z-index: 3001; /* Bumped up to stay above everything */
         background: #0284c7;
         color: white;
         border: none;
