@@ -265,6 +265,9 @@ function updateRecentActivity(callsign, lat, lng, time) {
     if (tbody.rows.length > 10) tbody.deleteRow(10);
     
     targetRow.classList.add('row-update');
+
+    const maxRows = (window.innerWidth < 600) ? 5 : 10;
+    if (tbody.rows.length > maxRows) tbody.deleteRow(maxRows);
 }
 
 async function getAddress(lat, lng) {
