@@ -214,7 +214,7 @@ function focusStation(callsign) {
         // NEW: Auto-minimize on mobile to show the map
         if (window.innerWidth <= 768) {
             const panel = document.querySelector('.side-panel');
-            if (!panel.classList.contains('minimized')) {
+            if (panel && !panel.classList.contains('minimized')) {
                 toggleSidebar();
             }
         }
@@ -352,27 +352,20 @@ async function updateMapAndUI(data) {
     }
 
     // Toggle Sidebar Function
-function toggleSidebar() {
-    // We select by the class name to ensure we hit the main panel
+ffunction toggleSidebar() {
     const panel = document.querySelector('.side-panel');
     const btn = document.getElementById('mobile-sidebar-toggle');
     
-    if (!panel) {
-        console.error("Side panel not found!");
-        return;
-    }
+    if (!panel) return console.error("Side panel missing!");
 
-    // Toggle the minimized class
+    // Toggle the class
     panel.classList.toggle('minimized');
     
-    // Debugging: Check console to see if this triggers
-    console.log("Sidebar minimized:", panel.classList.contains('minimized'));
-
-    // Update the icon based on the NEW state
-    if (panel.classList.contains('minimized')) {
-        btn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-    } else {
-        btn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+    // Update the arrow icon immediately
+    if (btn) {
+        btn.innerHTML = panel.classList.contains('minimized') 
+            ? '<i class="fa-solid fa-chevron-right"></i>' 
+            : '<i class="fa-solid fa-chevron-left"></i>';
     }
 }
 
