@@ -211,6 +211,13 @@ function focusStation(callsign) {
     if (markers[callsign]) {
         map.setView(markers[callsign].getLatLng(), 15, { animate: true });
         markers[callsign].openPopup();
+        // NEW: Auto-minimize on mobile to show the map
+        if (window.innerWidth <= 768) {
+            const panel = document.querySelector('.side-panel');
+            if (!panel.classList.contains('minimized')) {
+                toggleSidebar();
+            }
+        }
     } else {
         // Aesthetic replacement for browser alert
         showMiniAlert("No Signal", `${callsign} has not sent a signal yet.`);
@@ -287,7 +294,11 @@ function trackCallsign() {
     
     if (markers[input]) {
         map.setView(markers[input].getLatLng(), 15, { animate: true });
-        markers[input].openPopup();
+        markers[input].openPopup()
+            // NEW: Auto-minimize on mobile
+        if (window.innerWidth <= 768) {
+            toggleSidebar();
+        };
     } else {
         // Aesthetic replacement for browser alert
         showMiniAlert("Offline", `${input} is currently offline or not found.`);
@@ -343,20 +354,18 @@ async function updateMapAndUI(data) {
     // Toggle Sidebar Function
 function toggleSidebar() {
     const panel = document.querySelector('.side-panel');
-    // FIXED: Using the correct ID from your index.html
-    const btn = document.getElementById('mobile-sidebar-toggle'); 
+    const btn = document.getElementById('mobile-sidebar-toggle');
     
-    if (!panel || !btn) return; // Safety check
+    if (!panel) return;
 
+    // Force the toggle
     panel.classList.toggle('minimized');
     
-    // Rotate the arrow icon depending on state
-    if (panel.classList.contains('minimized')) {
-        // Points RIGHT when hidden so you know how to pull it back
-        btn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-    } else {
-        // Points LEFT when open to indicate "close"
-        btn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+    // Update button icon for user guidance
+    if (btn) {
+        btn.innerHTML = panel.classList.contains('minimized') 
+            ? '<i class="fa-solid fa-chevron-right"></i>' 
+            : '<i class="fa-solid fa-chevron-left"></i>';
     }
 }
 
