@@ -101,23 +101,51 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
         const formattedCallsign = callsign.toUpperCase().trim();
+
+        // 1. CHECK FOR DUPLICATE: Look for an existing registered station with this callsign
+        const existingStation = await TrackerResQLink.findOne({ 
+            callsign: formattedCallsign, 
+            isRegistered: true 
+        });
+
+        if (existingStation) {
+            // Return a 400 error if the callsign is already taken
+            return res.status(400).json({ error: "Callsign is already registered in the system." });
+        }
+
+        // 2. PREPARE DATA: If not a duplicate, prepare the update object
         const updateData = {
             callsign: formattedCallsign,
             lat: lat ? lat.toString() : null,
             lng: lng ? lng.toString() : null,
             symbol: symbol || "/-",
             details: details || "Registered Responder",
-            ownerName, contactNum, emergencyName, emergencyNum,
-            isRegistered: true, lastSeen: new Date()
+            ownerName, 
+            contactNum, 
+            emergencyName, 
+            emergencyNum,
+            isRegistered: true, 
+            lastSeen: new Date()
         };
-        const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
+
+        // 3. EXECUTE: Save the new station to MongoDB
+        const newStation = await TrackerResQLink.findOneAndUpdate(
+            { callsign: formattedCallsign }, 
+            updateData, 
+            { upsert: true, new: true }
+        );
         
-        // Include headcount in registration trigger
+        // 4. SYNC UI: Update headcount and trigger real-time notification
         const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
-        pusher.trigger("aprs-channel", "new-data", { ...newStation.toObject(), totalRegistered: totalCount });
+        pusher.trigger("aprs-channel", "new-data", { 
+            ...newStation.toObject(), 
+            totalRegistered: totalCount 
+        });
         
         res.status(200).json({ message: "Registered!", data: newStation });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
