@@ -57,7 +57,6 @@ app.post('/api/login', (req, res) => {
     res.status(401).json({ error: "Invalid Credentials" });
 });
 
-// LOGOUT ROUTE
 app.get('/api/logout', (req, res) => {
     req.session.destroy(() => {
         res.clearCookie('connect.sid');
