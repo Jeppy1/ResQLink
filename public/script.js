@@ -343,7 +343,19 @@ async function updateMapAndUI(data) {
     // Toggle Sidebar Function
 function toggleSidebar() {
     const panel = document.querySelector('.side-panel');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    const floatList = document.getElementById('mobile-floating-list');
+    
     panel.classList.toggle('minimized');
+    
+    // Rotate the arrow icon depending on state
+    if (panel.classList.contains('minimized')) {
+        toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+        if (floatList) floatList.style.display = 'block';
+    } else {
+        toggleBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+        if (floatList) floatList.style.display = 'none';
+    }
 }
 
 // Update the Floating Window
