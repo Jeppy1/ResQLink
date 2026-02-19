@@ -415,3 +415,35 @@ button:hover {
     border-radius: 6px;
     font-size: 14px;
 }
+
+#registered-list {
+    flex: 1; /* Allows this section to grow/shrink and scroll */
+    overflow-y: auto;
+    margin-bottom: 15px;
+    padding-right: 5px; /* Adds space so the scrollbar doesn't touch the text */
+}
+
+/* Custom Scrollbar for the Side Panel */
+.side-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.side-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.side-panel::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 10px;
+}
+
+.side-panel::-webkit-scrollbar-thumb:hover {
+    background: #38bdf8;
+}
+
+#registered-list {
+    max-height: 40vh; /* Takes up 40% of the screen height */
+    overflow-y: auto; /* Adds the scrollbar internally */
+    padding-right: 5px;
+    margin-bottom: 20px;
+}
