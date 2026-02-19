@@ -191,6 +191,22 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     } catch (err) { res.status(500).json([]); }
 });
 
+// Quick check route to prevent users from filling out forms for taken callsigns
+app.get('/api/check-callsign/:callsign', isAuthenticated, async (req, res) => {
+    try {
+        const callsign = req.params.callsign.toUpperCase().trim();
+        const station = await TrackerResQLink.findOne({ callsign, isRegistered: true });
+        
+        if (station) {
+            res.json({ exists: true, ownerName: station.ownerName });
+        } else {
+            res.json({ exists: false });
+        }
+    } catch (err) {
+        res.status(500).json({ error: "Server validation failed" });
+    }
+});
+
 // --- 5. APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
