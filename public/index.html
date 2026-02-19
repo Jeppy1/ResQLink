@@ -16,9 +16,12 @@
 
     <div id="regModal" class="modal-overlay" style="display:none;">
         <div class="modal-card">
-            <div class="modal-header"><h3><i class="fa-solid fa-id-card"></i> Callsign Registration</h3></div>
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-id-card"></i> Callsign Registration</h3>
+            </div>
             <div class="modal-body">
                 <p>Registering Callsign: <strong id="modalCallsignDisplay">---</strong></p>
+
                 <div class="input-field" style="margin-bottom: 15px;">
                     <i class="fa-solid fa-layer-group"></i>
                     <select id="stationType" onchange="toggleRegFields()">
@@ -26,12 +29,31 @@
                         <option value="igate">APRS iGate Station</option>
                     </select>
                 </div>
-                <div class="input-field"><i class="fa-solid fa-user"></i><input type="text" id="ownerName" placeholder="Name of Owner/Responder"></div>
-                <div class="input-field"><i class="fa-solid fa-phone"></i><input type="text" id="contactNum" placeholder="Contact Number" oninput="this.value = this.value.replace(/[^0-9]/g, '');"></div>
-                <div id="tracker-only-fields">
-                    <div class="input-field"><i class="fa-solid fa-hospital-user"></i><input type="text" id="emergencyName" placeholder="Emergency Contact Name"></div>
-                    <div class="input-field"><i class="fa-solid fa-phone-flip"></i><input type="text" id="emergencyNum" placeholder="Emergency Contact Number" oninput="this.value = this.value.replace(/[^0-9]/g, '');"></div>
+                
+                <div class="input-field">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="ownerName" placeholder="Name of Owner/Responder">
                 </div>
+                
+                <div class="input-field">
+                    <i class="fa-solid fa-phone"></i>
+                    <input type="text" id="contactNum" placeholder="Contact Number" 
+                           oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                </div>
+                
+                <div id="tracker-only-fields">
+                    <div class="input-field">
+                        <i class="fa-solid fa-hospital-user"></i>
+                        <input type="text" id="emergencyName" placeholder="Emergency Contact Name">
+                    </div>
+    
+                    <div class="input-field">
+                        <i class="fa-solid fa-phone-flip"></i>
+                        <input type="text" id="emergencyNum" placeholder="Emergency Contact Number"
+                               oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                    </div>
+                </div>
+    
                 <div class="modal-footer">
                     <button onclick="submitRegistration()" class="btn-confirm">Save Tracker</button>
                     <button onclick="closeModal()" class="btn-cancel">Cancel</button>
@@ -42,9 +64,14 @@
 
     <div id="confirmModal" class="modal-overlay" style="display:none;">
         <div class="modal-card">
-            <div class="modal-header warning-header"><h3><i class="fa-solid fa-eraser"></i> Clear Pathing</h3></div>
+            <div class="modal-header warning-header">
+                <h3><i class="fa-solid fa-eraser"></i> Clear Pathing</h3>
+            </div>
             <div class="modal-body">
-                <div class="warning-alert"><span>Reset history for <strong id="confirmCallsign">---</strong>?</span></div>
+                <div class="warning-alert">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>This action will permanently reset the path history for <strong id="confirmCallsign">---</strong>.</span>
+                </div>
                 <div class="modal-footer">
                     <button onclick="executeClear()" class="btn-confirm btn-danger" style="background:#ef4444;">Yes, Clear Path</button>
                     <button onclick="closeConfirmModal()" class="btn-cancel">Cancel</button>
@@ -58,9 +85,13 @@
             <div class="modal-body" style="text-align: center; padding: 10px;">
                 <i class="fa-solid fa-triangle-exclamation" style="font-size: 50px; color: #ef4444; margin-bottom: 20px;"></i>
                 <h3 style="color: #ef4444;">Confirm Deletion</h3>
-                <p style="color: #f1f5f9;">Remove <strong id="deleteCallsignDisplay" style="color: #38bdf8;">---</strong> permanently?</p>
+                <p style="color: #f1f5f9; margin-bottom: 25px;">
+                    Are you sure you want to permanently remove <br>
+                    <strong id="deleteCallsignDisplay" style="color: #38bdf8; font-size: 1.2rem;">---</strong> <br>
+                    from the ResQLink database?
+                </p>
                 <div class="modal-footer">
-                    <button id="confirmDeleteBtn" class="btn-confirm" style="background: #dc2626;">Yes, Delete</button>
+                    <button id="confirmDeleteBtn" class="btn-confirm" style="background: #dc2626;">Yes, Delete Permanently</button>
                     <button onclick="closeDeleteModal()" class="btn-cancel">Cancel</button>
                 </div>
             </div>
@@ -68,13 +99,20 @@
     </div>
 
     <div id="successModal" class="modal-overlay" style="display:none;">
-        <div class="modal-card"><div class="modal-body" style="text-align: center; padding: 30px;"><i class="fa-solid fa-circle-check" style="font-size: 50px; color: #22c55e;"></i><h3 id="successTitle">Success!</h3><p id="successMessage">Done.</p><button onclick="closeSuccessModal()" class="btn-confirm" style="width: 100%; margin-top: 20px;">OK</button></div></div>
+        <div class="modal-card">
+            <div class="modal-body" style="text-align: center; padding: 30px;">
+                <i class="fa-solid fa-circle-check" style="font-size: 50px; color: #22c55e; margin-bottom: 15px;"></i>
+                <h3 id="successTitle">Success!</h3>
+                <p id="successMessage">Operation completed.</p>
+                <button onclick="closeSuccessModal()" class="btn-confirm" style="width: 100%; margin-top: 20px;">OK</button>
+            </div>
+        </div>
     </div>
 
     <div class="side-panel">
         <div class="header-row">
-            <img src="Logo.png" class="logo" alt="ResQLink">
-            <button onclick="handleLogout()" class="btn-logout" title="Logout" style="background:transparent; color:#ef4444; border:none; cursor:pointer;">
+            <img src="Logo.png" class="logo" alt="ResQLink Logo">
+            <button onclick="handleLogout()" class="btn-logout" style="flex:none; padding: 8px 15px; background-color: #ef4444; border-radius: 8px; color: white; font-weight: bold; border: none; cursor: pointer; font-size: 13px;">
                 <i class="fa-solid fa-right-from-bracket"></i> Logout
             </button>
         </div>
@@ -96,8 +134,12 @@
         <div class="control-group">
             <input type="text" id="callSign" placeholder="Enter Callsign (e.g. DY6YAI)" autocomplete="off">
             <div class="button-row">
-                <button onclick="trackCallsign()" class="btn-track"><i class="fa-solid fa-location-crosshairs"></i> Track</button>
-                <button onclick="registerStation()" class="btn-reg"><i class="fa-solid fa-id-card"></i> Register</button>
+                <button onclick="trackCallsign()" class="btn-track">
+                    <i class="fa-solid fa-location-crosshairs"></i> Track
+                </button>
+                <button onclick="registerStation()" class="btn-reg">
+                    <i class="fa-solid fa-id-card"></i> Register
+                </button>
             </div>
         </div>
 
@@ -108,7 +150,7 @@
 
         <div class="legend-container" style="margin-top:20px;">
             <h4><i class="fa-solid fa-layer-group"></i> Icon Legend</h4>
-            <div class="legend-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:11px;">
+            <div class="legend-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-size:11px;">
                 <span><i class="fa-solid fa-tower-broadcast"></i> iGate</span>
                 <span><i class="fa-solid fa-person-walking"></i> Human</span>
                 <span><i class="fa-solid fa-truck-medical"></i> Medic</span>
@@ -120,7 +162,12 @@
             <h4><i class="fa-solid fa-clock-rotate-left"></i> Latest Activity</h4>
             <table class="activity-table">
                 <thead>
-                    <tr><th>Callsign</th><th>Lat</th><th>Lng</th><th>Received</th></tr>
+                    <tr>
+                        <th>Callsign</th>
+                        <th>Lat</th>
+                        <th>Lng</th>
+                        <th>Received</th>
+                    </tr>
                 </thead>
                 <tbody id="history-body"></tbody>
             </table>
