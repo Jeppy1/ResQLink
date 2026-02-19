@@ -2,7 +2,7 @@
 const pusher = new Pusher('899f970a7cf34c9a73a9', { cluster: 'ap1' });
 const channel = pusher.subscribe('aprs-channel');
 
-// 2. Map Setup
+// 2. Map & State Setup
 var map = L.map('map').setView([13.5857, 124.2160], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -26,6 +26,17 @@ function parseMongoDate(rawDate) {
     return isNaN(dateObj.getTime()) ? null : dateObj;
 }
 
+// --- RESTORED: GEOLOCATION LOGIC (Fixes the crash) ---
+async function getAddress(lat, lng) {
+    try {
+        const res = await fetch(`/api/get-address?lat=${lat}&lng=${lng}`);
+        const data = await res.json();
+        return data.address || "Location Found";
+    } catch (e) { 
+        return "Location Found"; 
+    }
+}
+
 // --- CORE UI UPDATES ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
@@ -33,7 +44,6 @@ function updateRegisteredList(data) {
     
     if (!list || !data.isRegistered) return;
 
-    // Update real-time headcount
     if (data.totalRegistered !== undefined && headerCount) {
         headerCount.innerText = `(${data.totalRegistered})`;
     }
@@ -58,7 +68,34 @@ function updateRegisteredList(data) {
     else list.insertAdjacentHTML('beforeend', itemHTML);
 }
 
-// ... (keep your submitRegistration and deleteStation functions)
+function focusStation(callsign) {
+    if (markers[callsign]) {
+        map.setView(markers[callsign].getLatLng(), 15, { animate: true });
+        markers[callsign].openPopup();
+    } else { alert(`${callsign} has not sent a signal yet.`); }
+}
+
+async function submitRegistration() {
+    const cs = document.getElementById('callSign').value.toUpperCase().trim();
+    if (!cs) return alert("Enter callsign first.");
+    
+    const data = {
+        callsign: cs,
+        ownerName: document.getElementById('ownerName').value,
+        contactNum: document.getElementById('contactNum').value,
+        symbol: (document.getElementById('stationType').value === 'igate') ? '/r' : '/[',
+        isRegistered: true
+    };
+
+    try {
+        const res = await fetch('/api/register-station', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(data) 
+        });
+        if (res.ok) { location.reload(); }
+    } catch (e) { console.error(e); }
+}
 
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
@@ -70,18 +107,29 @@ async function updateMapAndUI(data) {
 
     trackCoords[callsign] = path || [];
     if (trackPaths[callsign]) { trackPaths[callsign].setLatLngs(trackCoords[callsign]); } 
-    else if (trackCoords[callsign].length > 0) { trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10', opacity: 0.6 }).addTo(map); }
+    else if (trackCoords[callsign].length > 0) { trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, opacity: 0.6 }).addTo(map); }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     const timeStr = parseMongoDate(lastSeen) ? parseMongoDate(lastSeen).toLocaleTimeString() : "Receiving...";
     
-    // Status UI Updates
+    // Update Sidebar History Table
+    const tbody = document.getElementById('history-body');
+    if (tbody) {
+        let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
+        let targetRow = existingRow || tbody.insertRow(0);
+        targetRow.innerHTML = `<td>${callsign}</td><td>${lat}</td><td>${lng}</td><td>${timeStr}</td>`;
+    }
+
+    // Update Global Connection Status
     document.getElementById('status-text').innerText = "Connected to APRS-IS";
     document.getElementById('status-dot').style.color = "#22c55e";
 
     const customIcon = getSymbolIcon(symbol);
-    if (markers[callsign]) { markers[callsign].setLatLng(pos).setIcon(customIcon); } 
-    else { markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map); }
+    if (markers[callsign]) { 
+        markers[callsign].setLatLng(pos).setIcon(customIcon); 
+    } else { 
+        markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map); 
+    }
     markers[callsign].isRegistered = isRegistered;
 }
 
@@ -89,7 +137,6 @@ channel.bind('new-data', updateMapAndUI);
 
 window.onload = async () => {
     try {
-        // 1. Restore Role Badge immediately
         userRole = localStorage.getItem('userRole') || 'viewer'; 
         const roleText = document.getElementById('role-text');
         const roleBadge = document.getElementById('role-badge');
@@ -99,7 +146,6 @@ window.onload = async () => {
             roleBadge.classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
 
-        // 2. Fetch Initial Positions
         const res = await fetch(`/api/positions?t=${Date.now()}`);
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         
