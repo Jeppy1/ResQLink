@@ -82,21 +82,21 @@
         </div>
     </div>
 
+     <button id="mobile-sidebar-toggle" class="mobile-only-btn" onclick="toggleSidebar()">
+           <i class="fa-solid fa-chevron-left"></i>
+      </button>
+        
+     <div id="mobile-floating-list" class="mobile-floating-container">
+          <div class="floating-header">Registered</div>
+          <div id="floating-items"></div>
+    </div>
+
     <div class="side-panel">
         <div class="header-row">
             <img src="Logo.png" class="logo" alt="ResQLink">
             <button onclick="handleLogout()" class="btn-logout" style="background:#ef4444; border:none; color:white; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:bold; font-size:12px; flex:none;">
                 <i class="fa-solid fa-right-from-bracket"></i> Logout
             </button>
-        </div>
-
-        <button id="mobile-sidebar-toggle" class="mobile-only-btn" onclick="toggleSidebar()">
-            <i class="fa-solid fa-bars"></i>
-        </button>
-        
-        <div id="mobile-floating-list" class="mobile-floating-container">
-            <div class="floating-header">Registered</div>
-            <div id="floating-items"></div>
         </div>
 
         <div class="user-info" style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-bottom: 15px; gap: 10px;">
