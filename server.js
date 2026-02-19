@@ -23,8 +23,11 @@ app.use(session({
 
 // --- 2. DATABASE ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
+
+// Improved connection logic to prevent API timeouts
 mongoose.connect(uriResQLink, { 
-    serverSelectionTimeoutMS: 5000 
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000 
 }).then(() => {
     console.log("✅ Connected to MongoDB");
     const PORT = process.env.PORT || 8080;
@@ -69,6 +72,36 @@ app.post('/api/login', (req, res) => {
     res.status(401).json({ error: "Invalid Credentials" });
 });
 
+app.post('/api/register-station', isAuthenticated, async (req, res) => {
+    try {
+        const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
+        const formattedCallsign = callsign.toUpperCase().trim();
+        
+        const updateData = {
+            callsign: formattedCallsign,
+            lat: lat ? lat.toString() : null,
+            lng: lng ? lng.toString() : null,
+            symbol: symbol || "/-",
+            details: details || "Registered Responder",
+            ownerName, contactNum, emergencyName, emergencyNum,
+            isRegistered: true,
+            lastSeen: new Date()
+        };
+
+        const newStation = await TrackerResQLink.findOneAndUpdate(
+            { callsign: formattedCallsign }, 
+            updateData, 
+            { upsert: true, new: true }
+        );
+
+        pusher.trigger("aprs-channel", "new-data", newStation);
+        res.status(200).json({ message: "Registered!", data: newStation });
+    } catch (err) {
+        console.error("Registration Route Error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/get-address', async (req, res) => {
     const { lat, lng } = req.query;
     const cacheKey = `${lat},${lng}`;
@@ -104,20 +137,17 @@ const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "rotate.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
-        console.log("📡 Connected to APRS-IS Network");
+        console.log("📡 Connected to rotate.aprs2.net");
     });
 }
 connectAPRS();
 
-client.on('close', () => { 
-    console.log("⚠️ APRS Connection Closed. Retrying...");
-    setTimeout(connectAPRS, 5000); 
-});
+client.on('close', () => { setTimeout(connectAPRS, 5000); });
 
 client.on('data', async (data) => {
     const rawPacket = data.toString();
     
-    // --- DEBUG FEATURE: LOG ALL INCOMING PACKETS ---
+    // --- 🛠️ DEBUG FEATURE: LOG ALL INCOMING PACKETS ---
     if (!rawPacket.startsWith('#')) {
         console.log("RX:", rawPacket.trim());
     }
@@ -133,11 +163,8 @@ client.on('data', async (data) => {
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
-        
         if (existing && existing.isRegistered) {
-            // --- DEBUG FEATURE: LOG MATCHES ---
-            console.log(`✅ MATCH: Processing registered packet for ${callsign}`);
-
+            console.log(`✅ MATCH: Updating ${callsign} on map.`);
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
 
