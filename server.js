@@ -1,4 +1,3 @@
-// --- INITIALIZATION ---
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -10,18 +9,16 @@ const session = require('express-session');
 
 const app = express();
 const server = http.createServer(app);
-app.use(express.json()); 
+app.use(express.json());
 
-// --- SESSION ---
-app.set('trust proxy', 1); 
+app.set('trust proxy', 1);
 app.use(session({
     secret: process.env.SESSION_SECRET || 'resqlink-secure-key-2026',
     resave: false,
-    saveUninitialized: false, 
+    saveUninitialized: false,
     cookie: { secure: true, sameSite: 'none', maxAge: 1000 * 60 * 60 * 24 }
 }));
 
-// --- DATABASE ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 mongoose.connect(uriResQLink);
 
@@ -30,14 +27,19 @@ const TrackerResQLink = mongoose.model('Tracker', new mongoose.Schema({
     lat: String, lng: String, symbol: String,
     path: { type: [[Number]], default: [] },
     details: String, ownerName: String, contactNum: String,
-    emergencyName: String, emergencyNum: String,  
+    emergencyName: String, emergencyNum: String,
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 }));
 
-const pusher = new Pusher({ appId: process.env.PUSHER_APP_ID, key: process.env.PUSHER_KEY, secret: process.env.PUSHER_SECRET, cluster: process.env.PUSHER_CLUSTER, useTLS: true });
+const pusher = new Pusher({ 
+    appId: process.env.PUSHER_APP_ID, 
+    key: process.env.PUSHER_KEY, 
+    secret: process.env.PUSHER_SECRET, 
+    cluster: process.env.PUSHER_CLUSTER, 
+    useTLS: true 
+});
 
-// --- ROUTES ---
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
@@ -51,13 +53,16 @@ app.post('/api/login', (req, res) => {
         req.session.user = username;
         req.session.role = (username === 'admin') ? 'admin' : 'viewer';
         return req.session.save(() => res.json({ success: true, role: req.session.role }));
-    } 
+    }
     res.status(401).json({ error: "Invalid Credentials" });
 });
 
-// FIXED LOGOUT ROUTE
+// LOGOUT ROUTE
 app.get('/api/logout', (req, res) => {
-    req.session.destroy(() => { res.redirect('/'); });
+    req.session.destroy(() => {
+        res.clearCookie('connect.sid');
+        res.redirect('/');
+    });
 });
 
 app.post('/api/register-station', async (req, res) => {
@@ -74,7 +79,7 @@ app.post('/api/register-station', async (req, res) => {
 app.get('/api/positions', async (req, res) => {
     try {
         const positions = await TrackerResQLink.find({ isRegistered: true });
-        res.json(positions); 
+        res.json(positions);
     } catch (err) { res.status(500).json([]); }
 });
 
@@ -87,7 +92,6 @@ app.get('/api/get-address', async (req, res) => {
     } catch (e) { res.json({ address: `${lat}, ${lng}` }); }
 });
 
-// --- APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "rotate.aprs2.net", () => {
@@ -98,7 +102,6 @@ connectAPRS();
 
 client.on('data', async (data) => {
     const rawPacket = data.toString();
-    console.log("RX:", rawPacket.trim());
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
     if (latMatch && lngMatch) {
@@ -108,12 +111,12 @@ client.on('data', async (data) => {
         const existing = await TrackerResQLink.findOne({ callsign });
         if (existing && existing.isRegistered) {
             const updated = await TrackerResQLink.findOneAndUpdate(
-                { callsign }, 
+                { callsign },
                 { lat: lat.toFixed(4), lng: lng.toFixed(4), lastSeen: new Date(), $push: { path: { $each: [[lat, lng]], $slice: -20 } } },
                 { new: true }
             );
             const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
-            pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount }); 
+            pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount });
         }
     }
 });
