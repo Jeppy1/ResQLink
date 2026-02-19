@@ -286,7 +286,7 @@ async function updateMapAndUI(data) {
                 ${emergencySection}
             </div>
             <div style="font-size: 12px; color: #ef4444; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div>
-            <div style="font-size: 11px; color: #94a3b8; background: #6f7278; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
+            <div style="font-size: 11px; color: #6f7278; background: #dcdde0; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
                 <b>Type:</b> ${typeName}<br>
                 <b>🕒 Last Seen:</b> ${timeStr}
             </div>
