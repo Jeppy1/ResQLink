@@ -353,19 +353,26 @@ async function updateMapAndUI(data) {
 
     // Toggle Sidebar Function
 function toggleSidebar() {
+    // We select by the class name to ensure we hit the main panel
     const panel = document.querySelector('.side-panel');
     const btn = document.getElementById('mobile-sidebar-toggle');
     
-    if (!panel) return;
+    if (!panel) {
+        console.error("Side panel not found!");
+        return;
+    }
 
-    // Force the toggle
+    // Toggle the minimized class
     panel.classList.toggle('minimized');
     
-    // Update button icon for user guidance
-    if (btn) {
-        btn.innerHTML = panel.classList.contains('minimized') 
-            ? '<i class="fa-solid fa-chevron-right"></i>' 
-            : '<i class="fa-solid fa-chevron-left"></i>';
+    // Debugging: Check console to see if this triggers
+    console.log("Sidebar minimized:", panel.classList.contains('minimized'));
+
+    // Update the icon based on the NEW state
+    if (panel.classList.contains('minimized')) {
+        btn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
     }
 }
 
