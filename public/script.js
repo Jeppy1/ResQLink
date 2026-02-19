@@ -313,7 +313,10 @@ function handleLogout() {
 
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
-    updateRegisteredList(data); 
+    updateRegisteredList(data);
+    if (window.innerWidth <= 768) {
+        updateFloatingWindow(data); // Populate the floating window on mobile
+    }
 
     if (!lat || !lng || lat === "null" || lng === "null") return;
 
@@ -336,6 +339,28 @@ async function updateMapAndUI(data) {
             opacity: 0.6 
         }).addTo(map);
     }
+
+    // Toggle Sidebar Function
+function toggleSidebar() {
+    const panel = document.querySelector('.side-panel');
+    panel.classList.toggle('minimized');
+}
+
+// Update the Floating Window
+function updateFloatingWindow(data) {
+    const container = document.getElementById('floating-items');
+    if (!container || !data.isRegistered) return;
+
+    let existing = document.getElementById(`float-${data.callsign}`);
+    const itemHTML = `
+        <div class="floating-item" id="float-${data.callsign}" onclick="focusStation('${data.callsign}')">
+            ${data.callsign}
+        </div>
+    `;
+
+    if (existing) existing.outerHTML = itemHTML;
+    else container.insertAdjacentHTML('beforeend', itemHTML);
+}
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     const dateObj = parseMongoDate(lastSeen);
