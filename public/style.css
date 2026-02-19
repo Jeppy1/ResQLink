@@ -1,148 +1,417 @@
 /* --- 1. GLOBAL & RESET --- */ 
 body, html {
-    margin: 0; padding: 0;
-    height: 100vh; width: 100vw;
-    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     overflow: hidden;
     background-color: #0f172a;
 }
-.container { display: flex; height: 100vh; width: 100vw; }
-#map { flex: 1; height: 100vh; z-index: 1; }
 
-/* --- 2. SIDE PANEL --- */
-.side-panel {
-    width: 280px; background: #1e293b; padding: 20px;
-    box-shadow: -2px 0 15px rgba(0,0,0,0.5);
-    display: flex; flex-direction: column; /* CRITICAL: Enables margin-top:auto logic */
-    z-index: 1000; color: white; height: 100vh;
+.container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
 }
 
-.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.logo { max-width: 140px; height: auto; }
+#map {
+    flex: 1;
+    height: 100vh;
+    z-index: 1;
+}
 
-/* --- 3. ROLE, STATUS & TOP BUTTONS --- */
-.user-info { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+/* --- 2. SIDE PANEL (DASHBOARD) --- */
+.side-panel {
+    width: 280px; 
+    background: #1e293b;
+    padding: 20px;
+    box-shadow: -2px 0 15px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    color: white;
+    overflow-y: auto;
+}
+
+.header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.logo {
+    max-width: 160px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.2));
+}
+
+/* --- 3. ROLE & STATUS SYSTEM --- */
+.user-info {
+    margin-bottom: 15px;
+}
 
 .role-badge {
-    padding: 6px 14px; border-radius: 50px;
-    font-size: 10px; font-weight: 800;
-    text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    border-radius: 50px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: rgba(255, 255, 255, 0.1);
 }
+
 .role-admin { background-color: #22c55e !important; color: white; }
 .role-viewer { background-color: #3b82f6 !important; color: white; }
 
-/* FIXED: Clean Circular Export Button */
-.btn-download {
-    background: none; border: none; color: #38bdf8; 
-    cursor: pointer; font-size: 20px; padding: 0;
-    display: flex; align-items: center; justify-content: center;
+.status-box {
+    padding: 10px;
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 12px;
+}
+
+/* --- 4. CONTROLS & INPUTS --- */
+.control-group input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    box-sizing: border-box;
+    color: white;
+}
+
+.button-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+button {
+    flex: 1;
+    padding: 10px;
+    background-color: #0284c7;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 13px;
     transition: 0.2s;
 }
-.btn-download:hover { color: white; transform: scale(1.1); }
 
+button:hover {
+    background-color: #0ea5e9;
+    transform: translateY(-1px);
+}
+
+/* --- 5. ACTIVITY TABLE --- */
+.history-container {
+    margin-top: auto; 
+    padding-top: 20px;
+}
+
+.activity-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.activity-table th {
+    text-align: left;
+    color: #38bdf8;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.activity-table td {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+/* --- 6. CALLSIGN REGISTRATION MINI-WINDOW (UPDATED) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.85); 
+    backdrop-filter: blur(10px); 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal-card {
+    background: #1e293b;
+    width: 90%;
+    max-width: 420px;
+    padding: 30px; 
+    border-radius: 28px; 
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(56, 189, 248, 0.4); 
+    color: #ffffff;
+    text-align: center;
+}
+
+.modal-card h3 {
+    color: #38bdf8;
+    font-size: 1.6rem;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+}
+
+.modal-card p {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 25px;
+}
+
+.modal-card strong {
+    color: #38bdf8;
+    font-size: 16px;
+    text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+/* Registration Inputs & Overlap Fix */
+.input-field {
+    position: relative;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    overflow: hidden;
+}
+
+.input-field i {
+    position: absolute;
+    left: 18px;
+    color: #38bdf8;
+    font-size: 16px;
+    z-index: 5;
+    width: 20px;
+    text-align: center;
+}
+
+.input-field input, 
+.input-field select {
+    width: 100%;
+    padding: 15px 15px 15px 55px !important;
+    background: transparent;
+    border: none;
+    border-radius: 14px;
+    color: #ffffff;
+    font-size: 14px;
+    outline: none;
+    box-sizing: border-box;
+}
+
+/* MODIFIED CUSTOM DROPDOWN ARROW & CHOICES */
+.input-field select {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    /* Arrow Down Indicator on the right */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 18px center;
+    background-size: 16px;
+    padding-right: 45px !important; /* Spacing for the arrow */
+}
+
+/* Visibility for choices text */
+.input-field select option {
+    background: #1e293b; /* Dark background to match theme */
+    color: #ffffff !important; /* Force white text for visibility */
+    padding: 12px;
+}
+
+/* Hover highlight for modern browsers */
+.input-field select option:hover {
+    background-color: #0284c7;
+}
+
+.input-field:focus-within {
+    border-color: #38bdf8;
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15);
+}
+
+/* Button Refinement */
+.modal-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 25px;
+}
+
+.btn-confirm {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    padding: 16px;
+    font-size: 15px;
+    border-radius: 14px;
+    font-weight: bold;
+    border: none;
+    color: white;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.btn-confirm:hover {
+    transform: translateY(-2px);
+    background: #0ea5e9;
+}
+
+.btn-cancel {
+    background: rgba(239, 68, 68, 0.05);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    padding: 14px;
+    font-size: 14px;
+    border-radius: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-cancel:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+}
+
+/* --- 7. LOGIN PAGE REFINEMENTS --- */
+.login-body {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0f172a;
+}
+
+.login-card {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(12px);
+    padding: 40px;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.login-logo {
+    width: 260px;
+    height: auto;
+    margin: 0 auto 30px auto;
+    display: block;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-group i:first-child {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #38bdf8;
+    font-size: 16px;
+    z-index: 10;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 12px 40px 12px 45px; 
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: white;
+    box-sizing: border-box;
+}
+
+#togglePassword {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #38bdf8;
+}
+
+.login-footer {
+    margin-top: 25px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #ef4444; 
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+/* --- LOADING STATE --- */
+.loading-process, 
+.loading-process * {
+    cursor: wait !important;
+}
+
+/* --- STATUS BOX POLISH --- */
 .status-box {
-    padding: 10px; background: rgba(15, 23, 42, 0.5);
-    border-radius: 8px; margin-bottom: 15px; font-size: 12px;
-    display: flex; align-items: center; gap: 8px;
+    padding: 12px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-/* --- 4. CONTROLS & REGISTERED LIST --- */
-.control-group input {
-    width: 100%; padding: 12px; margin-bottom: 10px;
-    background: #0f172a; border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px; box-sizing: border-box; color: white;
-}
-.button-row { display: flex; gap: 8px; margin-bottom: 20px; }
-
-#registered-list { 
-    max-height: 35vh; 
-    overflow-y: auto; 
-    margin-bottom: 10px; 
-    padding-right: 5px; 
+#status-dot {
+    font-size: 14px;
+    text-shadow: 0 0 8px currentColor; 
 }
 
 .station-item {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px; background: rgba(15, 23, 42, 0.4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: rgba(15, 23, 42, 0.4);
     border: 1px solid rgba(56, 189, 248, 0.1);
-    border-radius: 8px; margin-bottom: 5px; cursor: pointer;
-}
-.status-indicator { width: 8px; height: 8px; border-radius: 50%; }
-
-/* --- 5. LOGIN PAGE (PERFECT - UNTOUCHED) --- */
-.login-body {
-    height: 100vh; display: flex;
-    align-items: center; justify-content: center;
-    background-color: #0f172a;
-}
-.login-card {
-    background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px);
-    padding: 40px; border-radius: 20px;
-    width: 100%; max-width: 380px;
-    text-align: center; border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.login-logo { width: 360px; margin: 0 auto 30px auto; display: block; }
-.input-group { position: relative; margin-bottom: 20px; }
-.input-group i:first-child {
-    position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
-    color: #38bdf8; font-size: 16px; z-index: 10; pointer-events: none;
-}
-.input-group input {
-    width: 100%; padding: 12px 10px 12px 45px; 
-    background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px; color: white; box-sizing: border-box; outline: none;
-}
-.input-group input:focus { border-color: #38bdf8; }
-#togglePassword {
-    position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
-    cursor: pointer; color: #38bdf8; z-index: 10;
-}
-.login-footer {
-    margin-top: 20px; font-size: 12px; color: #ef4444; 
-    font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    border-radius: 8px;
+    margin-bottom: 5px;
+    cursor: pointer;
 }
 
-/* --- 6. REGISTRATION MODAL --- */
-.modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px);
-    display: flex; align-items: center; justify-content: center; z-index: 9999;
+/* Online/Offline Dot */
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
 }
-.modal-card {
-    background: #1e293b; width: 90%; max-width: 420px; padding: 30px;
-    border-radius: 28px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-    border: 1px solid rgba(56, 189, 248, 0.4); color: #ffffff; text-align: center;
-}
-.input-field {
-    position: relative; margin-bottom: 15px; display: flex; align-items: center;
-    background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 14px; overflow: hidden;
-}
-.input-field i { position: absolute; left: 18px; color: #38bdf8; font-size: 16px; z-index: 5; }
-.input-field select {
-    appearance: none; width: 100%; padding: 15px 15px 15px 55px !important;
-    background: transparent; border: none; color: white; cursor: pointer;
-}
+.online-dot { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
+.offline-dot { background-color: #64748b; }
 
-/* --- 7. BUTTONS & ACTIVITY TABLE (BOTTOM POSITIONED) --- */
-button {
-    flex: 1; padding: 10px; background-color: #0284c7;
-    color: white; border: none; border-radius: 8px;
-    cursor: pointer; font-weight: bold; font-size: 13px; transition: 0.2s;
+.btn-download {
+    background: #334155;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 6px;
+    font-size: 14px;
 }
-button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
-
-/* Pinned to Bottom */
-.history-container { 
-    margin-top: auto; 
-    padding-top: 20px; 
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-.activity-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-.activity-table th { text-align: left; color: #38bdf8; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-.activity-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-
-/* Scrollbars */
-.side-panel::-webkit-scrollbar, #registered-list::-webkit-scrollbar { width: 4px; }
-.side-panel::-webkit-scrollbar-thumb, #registered-list::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
