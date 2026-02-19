@@ -518,54 +518,57 @@ button:hover {
         visibility: hidden;
     }
 
-    /* Shown only when side-panel is minimized */
+    /* Keeps the pills stacked neatly */
     .side-panel.minimized ~ .mobile-floating-container {
         display: flex;
         flex-direction: column;
-        align-items: flex-end; /* Align pills to the right edge */
-        gap: 10px;
-        animation: fadeIn 0.4s ease forwards;
+        align-items: flex-end;
+        gap: 6px;
     }
 
-    /* The clickable pill design */
+    /* Individual pills remain visible and interactive */
     .floating-item {
-        padding: 12px 20px;
-        font-size: 14px;
-        color: #ffffff;
-        background: rgba(15, 23, 42, 0.85); /* Deep translucent blue */
-        border: 2px solid #38bdf8; /* Vibrant cyan border for affordance */
-        border-radius: 50px; /* Perfect pill shape */
-        text-align: center;
-        font-weight: 800;
-        cursor: pointer;
-        backdrop-filter: blur(12px);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        letter-spacing: 1px;
+        padding: 6px 14px;
+        font-size: 11px;
+        color: white;
+        /* Semi-transparent black for the pill itself */
+        background: rgba(15, 23, 42, 0.6); 
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        border-radius: 20px;
+        font-weight: 600;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         white-space: nowrap;
+        pointer-events: auto; /* Ensures they stay clickable */
     }
 
-    /* Touch feedback: Shrink and glow when tapped */
+    /* Active feedback still stays prominent */
     .floating-item:active {
-        transform: scale(0.92);
-        background: rgba(56, 189, 248, 0.4);
-        border-color: #7dd3fc;
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+        transform: scale(0.95);
+        background: rgba(56, 189, 248, 0.5);
+        border-color: #38bdf8;
     }
 
     /* Transparent container to let the map show through between buttons */
     .mobile-floating-container {
         display: none; 
         position: fixed;
-        top: 20px;
-        right: 20px;
+        top: 10px;
+        right: 10px;
         width: auto;
-        max-height: 40dvh;
+        max-height: 40dvh; 
         z-index: 1001;
         overflow-y: auto;
-        background: transparent;
-        border: none;
-        box-shadow: none;
+        
+        /* These lines remove the grey box */
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        
+        /* Still allows scrolling if you have many callsigns */
+        scrollbar-width: none; 
+        -ms-overflow-style: none;
     }
 
     /* The Hamburger / Toggle Button */
