@@ -88,19 +88,22 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             isRegistered: true, lastSeen: new Date()
         };
         const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
-        pusher.trigger("aprs-channel", "new-data", newStation);
+        
+        // Count for real-time headcount
+        const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+        pusher.trigger("aprs-channel", "new-data", { ...newStation.toObject(), totalRegistered: totalCount });
+        
         res.status(200).json({ message: "Registered!", data: newStation });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// FIXED: DELETE ROUTE DEFINITION
 app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
     try {
         const callsign = req.params.callsign.toUpperCase().trim();
-        console.log(`🗑️ DELETE REQUEST RECEIVED FOR: ${callsign}`);
         const deleted = await TrackerResQLink.findOneAndDelete({ callsign: callsign });
         if (deleted) {
-            pusher.trigger("aprs-channel", "delete-data", { callsign });
+            const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+            pusher.trigger("aprs-channel", "delete-data", { callsign, totalRegistered: totalCount });
             res.status(200).json({ message: "Deleted" });
         } else {
             res.status(404).json({ error: "Not Found" });
@@ -146,7 +149,10 @@ connectAPRS();
 client.on('close', () => { setTimeout(connectAPRS, 5000); });
 client.on('data', async (data) => {
     const rawPacket = data.toString();
+    
+    // --- 🛠️ DEBUG RX LOGGING ---
     if (!rawPacket.startsWith('#')) console.log("RX:", rawPacket.trim());
+
     if (mongoose.connection.readyState !== 1) return;
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -164,7 +170,8 @@ client.on('data', async (data) => {
                 { lat: cleanLat.toString(), lng: cleanLng.toString(), lastSeen: new Date(), $push: { path: { $each: [[cleanLat, cleanLng]], $slice: -20 } } },
                 { new: true }
             );
-            pusher.trigger("aprs-channel", "new-data", updated.toObject()); 
+            const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+            pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount }); 
         }
     }
 });
