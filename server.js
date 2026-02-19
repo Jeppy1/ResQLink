@@ -23,10 +23,16 @@ app.use(session({
 
 // --- 2. DATABASE ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
-const connResQLink = mongoose.createConnection(uriResQLink, { 
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 10000 
-});
+
+// Using Global Connect for better stability and login handling
+mongoose.connect(uriResQLink, { 
+    serverSelectionTimeoutMS: 5000 
+}).then(() => {
+    console.log("✅ Connected to MongoDB");
+    // Only start server once DB is ready to handle logins
+    const PORT = process.env.PORT || 8080;
+    server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server fully live on port ${PORT}`));
+}).catch(err => console.error("❌ DB Connection Failed:", err));
 
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
@@ -38,7 +44,7 @@ const trackerSchema = new mongoose.Schema({
     lastSeen: { type: Date, default: Date.now }
 });
 
-const TrackerResQLink = connResQLink.model('Tracker', trackerSchema);
+const TrackerResQLink = mongoose.model('Tracker', trackerSchema);
 
 // --- 3. PUSHER --- 
 const pusher = new Pusher({
@@ -55,6 +61,16 @@ function isAuthenticated(req, res, next) {
     res.status(401).json({ error: "Unauthorized" }); 
 }
 
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === 'admin' && password === 'resqlink2026') {
+        req.session.user = username;
+        req.session.role = 'admin';
+        return req.session.save(() => res.json({ success: true, role: 'admin' }));
+    } 
+    res.status(401).json({ error: "Invalid Credentials" });
+});
+
 app.get('/', (req, res) => {
     if (req.session && req.session.user) res.sendFile(path.join(__dirname, 'public', 'index.html'));
     else res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -67,22 +83,6 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
         const positions = await TrackerResQLink.find({ isRegistered: true });
         res.json(positions); 
     } catch (err) { res.status(500).json([]); }
-});
-
-app.post('/api/register-station', isAuthenticated, async (req, res) => {
-    try {
-        const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
-        const formattedCallsign = callsign.toUpperCase().trim();
-        const updateData = {
-            callsign: formattedCallsign, lat: lat.toString(), lng: lng.toString(),
-            symbol: symbol || "/-", details: details || "Registered Responder",
-            ownerName, contactNum, emergencyName, emergencyNum,
-            isRegistered: true, lastSeen: new Date()
-        };
-        const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
-        pusher.trigger("aprs-channel", "new-data", newStation);
-        res.status(200).json({ message: "Registered!", data: newStation });
-    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // --- 5. APRS LOGIC ---
@@ -100,12 +100,6 @@ client.on('close', () => { setTimeout(connectAPRS, 5000); });
 client.on('data', async (data) => {
     const rawPacket = data.toString();
     if (rawPacket.startsWith('#')) return; 
-    console.log("RX:", rawPacket.trim());
-
-    if (connResQLink.readyState !== 1) return;
-
-    // --- 🛡️ BLOCKER REMOVED PER REQUEST ---
-    // Pushes EVERYTHING that matches a registered callsign
 
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -118,9 +112,6 @@ client.on('data', async (data) => {
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         
         if (existing && existing.isRegistered) {
-            console.log(`MATCH FOUND: Pushing update for ${callsign}`);
-            
-            // Ensure coordinates are saved as clean strings but used as floats in the path
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
 
@@ -135,11 +126,7 @@ client.on('data', async (data) => {
                 { new: true }
             );
 
-            // Push the fully updated document to Pusher
             pusher.trigger("aprs-channel", "new-data", updated.toObject()); 
         }
     }
 });
-
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server fully live on port ${PORT}`));
