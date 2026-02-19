@@ -206,12 +206,14 @@ function updateRegisteredList(data) {
     else list.insertAdjacentHTML('beforeend', itemHTML);
 }
 
+// --- UPDATED: Map Interaction Functions ---
 function focusStation(callsign) {
     if (markers[callsign]) {
         map.setView(markers[callsign].getLatLng(), 15, { animate: true });
         markers[callsign].openPopup();
     } else {
-        alert(`${callsign} has not sent a signal yet.`);
+        // Aesthetic replacement for browser alert
+        showMiniAlert("No Signal", `${callsign} has not sent a signal yet.`);
     }
 }
 
@@ -275,7 +277,29 @@ async function getAddress(lat, lng) {
 
 function trackCallsign() {
     const input = document.getElementById('callSign').value.toUpperCase().trim();
-    if (markers[input]) { map.setView(markers[input].getLatLng(), 15, { animate: true }); markers[input].openPopup(); }
+    if (!input) {
+        showMiniAlert("Input Required", "Please enter a callsign to track.");
+        return;
+    }
+    
+    if (markers[input]) {
+        map.setView(markers[input].getLatLng(), 15, { animate: true });
+        markers[input].openPopup();
+    } else {
+        // Aesthetic replacement for browser alert
+        showMiniAlert("Offline", `${input} is currently offline or not found.`);
+    }
+}
+
+// --- NEW: Custom Mini Alert Utility ---
+function showMiniAlert(title, message) {
+    document.getElementById('miniAlertTitle').innerText = title;
+    document.getElementById('miniAlertMessage').innerText = message;
+    document.getElementById('miniAlertModal').style.display = 'flex';
+}
+
+function closeMiniAlert() {
+    document.getElementById('miniAlertModal').style.display = 'none';
 }
 
 // FIXED: Clears local session role before redirecting to logout route
