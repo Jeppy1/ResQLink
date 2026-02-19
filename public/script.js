@@ -181,20 +181,23 @@ function focusStation(callsign) {
     }
 }
 
+// --- CSV DOWNLOAD LOGIC UPDATE ---
 function downloadAllPaths() {
-    let csvContent = "data:text/csv;charset=utf-8,";
+    let csvContent = "data:text/csv;charset=utf-8,Callsign,Latitude,Longitude,Date,Time\n";  
     Object.keys(trackCoords).forEach(callsign => {
-        csvContent += `\n--- HISTORY FOR: ${callsign} ---\n`;
-        csvContent += "Latitude,Longitude,Date,Time\n";
-        trackCoords[callsign].forEach(coord => {
-            const now = new Date();
-            csvContent += `${coord[0]},${coord[1]},${now.toLocaleDateString()},${now.toLocaleTimeString()}\n`;
+        // trackCoords now contains the objects from the database path array
+        trackCoords[callsign].forEach(point => {
+            // point.timestamp is the actual uplink time from the database
+            const uplinkDate = new Date(point.timestamp);
+            const dateStr = uplinkDate.toLocaleDateString();
+            const timeStr = uplinkDate.toLocaleTimeString();
+            csvContent += `${callsign},${point.lat},${point.lng},${dateStr},${timeStr}\n`;
         });
     });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `ResQLink_Report_${new Date().toLocaleDateString()}.csv`);
+    link.setAttribute("download", `ResQLink_Full_History_${new Date().toLocaleDateString()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -256,13 +259,21 @@ async function updateMapAndUI(data) {
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
+    // UPDATED: Store the full path objects (with timestamps) in trackCoords for CSV export
     trackCoords[callsign] = path || [];
-    if (trackCoords[callsign].length > 20) trackCoords[callsign] = trackCoords[callsign].slice(-20);
+    
+    // NEW: Extract only [lat, lng] into a simple array for Leaflet polyline drawing
+    const polylinePoints = trackCoords[callsign].map(point => [point.lat, point.lng]);
 
+    // Path drawing logic using the extracted polylinePoints
     if (trackPaths[callsign]) {
-        trackPaths[callsign].setLatLngs(trackCoords[callsign]);
-    } else if (trackCoords[callsign].length > 0) {
-        trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, dashArray: '5, 10', opacity: 0.6 }).addTo(map);
+        trackPaths[callsign].setLatLngs(polylinePoints);
+    } else if (polylinePoints.length > 0) {
+        trackPaths[callsign] = L.polyline(polylinePoints, { 
+            color: '#007bff', 
+            weight: 3, 
+            opacity: 0.6 
+        }).addTo(map);
     }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
