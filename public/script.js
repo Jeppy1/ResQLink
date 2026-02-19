@@ -72,7 +72,11 @@ function toggleRegFields() {
 function registerStation() {
     const cs = document.getElementById('callSign').value.toUpperCase().trim();
     if (!cs) return alert("Enter callsign.");
-    if (markers[cs] && markers[cs].isRegistered) return showSuccess("Already Registered", `${cs} is in database.`);
+    
+    // NEW: Check if callsign already exists in the markers object before opening modal
+    if (markers[cs] && markers[cs].isRegistered) {
+        return showSuccess("Duplicate Entry", `Callsign ${cs} is already registered in the database.`);
+    }
     
     document.getElementById('modalCallsignDisplay').innerText = cs;
     document.getElementById('regModal').style.display = 'flex'; 
@@ -83,6 +87,14 @@ function closeModal() { document.getElementById('regModal').style.display = 'non
 
 async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
+
+    // DOUBLE CHECK: Ensure it wasn't added while the modal was open
+    if (markers[cs] && markers[cs].isRegistered) {
+        alert("This callsign was just registered by another session.");
+        closeModal();
+        return;
+    }
+
     const type = document.getElementById('stationType').value;
     const symbol = (type === 'igate') ? '/r' : '/[';
     const details = (type === 'igate') ? 'Stationary iGate' : 'Mobile Responder';
@@ -108,7 +120,13 @@ async function submitRegistration() {
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(data) 
         });
-        if (res.ok) { closeModal(); showSuccess("Success", `${cs} registered successfully.`); }
+        if (res.ok) { 
+            closeModal(); 
+            showSuccess("Success", `${cs} registered successfully.`); 
+        } else {
+            const errData = await res.json();
+            alert(errData.error || "Registration failed.");
+        }
     } catch (e) { showSuccess("Error", "Server unreachable."); }
     finally { document.body.classList.remove('loading-process'); }
 }
