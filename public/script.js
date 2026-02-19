@@ -86,23 +86,34 @@ async function submitRegistration() {
     const cs = document.getElementById('modalCallsignDisplay').innerText;
     const type = document.getElementById('stationType').value;
     
+    // Auto-set symbol based on type
     const symbol = (type === 'igate') ? '/r' : '/[';
     const details = (type === 'igate') ? 'Stationary iGate' : 'Mobile Responder';
 
+    // Safely capture names and numbers
+    const ownerName = document.getElementById('ownerName').value;
+    const contactNum = document.getElementById('contactNum').value;
+    const emergencyName = document.getElementById('emergencyName') ? document.getElementById('emergencyName').value : "N/A";
+    const emergencyNum = document.getElementById('emergencyNum') ? document.getElementById('emergencyNum').value : "N/A";
+
     const data = {
         callsign: cs,
-        // UPDATED: Start with null coordinates to avoid clustering at Virac center
-        lat: null,
-        lng: null,
-        ownerName: document.getElementById('ownerName').value,
-        contactNum: document.getElementById('contactNum').value,
-        emergencyName: (type === 'igate') ? "N/A" : document.getElementById('emergencyName').value,
-        emergencyNum: (type === 'igate') ? "N/A" : document.getElementById('emergencyNum').value,
+        // If the marker exists (from a raw packet), use its location. 
+        // Otherwise, send null to prevent clustering at Virac center.
+        lat: markers[cs] ? markers[cs].getLatLng().lat : null,
+        lng: markers[cs] ? markers[cs].getLatLng().lng : null,
+        ownerName: ownerName,
+        contactNum: contactNum,
+        emergencyName: (type === 'igate') ? "N/A" : emergencyName,
+        emergencyNum: (type === 'igate') ? "N/A" : emergencyNum,
         symbol: symbol,
         details: details
     };
 
-    if (!data.ownerName || !data.contactNum) return alert("Required fields missing.");
+    // Validation
+    if (!ownerName || !contactNum) {
+        return alert("Please fill in the Owner Name and Contact Number.");
+    }
 
     document.body.classList.add('loading-process');
     try {
@@ -111,12 +122,20 @@ async function submitRegistration() {
             headers: { 'Content-Type': 'application/json' }, 
             body: JSON.stringify(data) 
         });
+
         if (res.ok) { 
             closeModal(); 
-            showSuccess("Success", `${cs} registered. Waiting for first signal to appear on map.`); 
+            showSuccess("Success", `${cs} registered successfully. It will appear on the map as soon as it sends a signal.`); 
+        } else {
+            const errData = await res.json();
+            alert("Registration failed: " + (errData.error || "Unknown error"));
         }
-    } catch (e) { showSuccess("Error", "Server unreachable."); }
-    finally { document.body.classList.remove('loading-process'); }
+    } catch (e) { 
+        console.error("Submission Error:", e);
+        showSuccess("Error", "Could not connect to the server."); 
+    } finally { 
+        document.body.classList.remove('loading-process'); 
+    }
 }
 
 // --- STATION DELETION ---
