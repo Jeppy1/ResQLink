@@ -25,7 +25,6 @@ app.use(session({
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 const uriTest = process.env.MONGODB_URL_TEST;
 
-// Connect with Error Handling to prevent hanging
 const connResQLink = mongoose.createConnection(uriResQLink, { 
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 10000 
@@ -151,12 +150,20 @@ app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
 // --- 5. APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
-    client.connect(14580, "asia.aprs2.net", () => {
+    // SWITCHED TO GLOBAL ROTATION FOR BETTER RELIABILITY
+    client.connect(14580, "rotate.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
+        console.log("Connected to rotate.aprs2.net");
         pusher.trigger("aprs-channel", "connection-status", { status: "Online" });
     });
 }
 connectAPRS();
+
+// Re-establish connection if it drops
+client.on('close', () => {
+    console.log("APRS Connection closed. Retrying in 5s...");
+    setTimeout(connectAPRS, 5000);
+});
 
 function extractPacketTime(rawPacket) {
     const timeMatch = rawPacket.match(/@([0-9]{6})[zh]/); 
@@ -176,11 +183,16 @@ function extractPacketTime(rawPacket) {
 }
 
 client.on('data', async (data) => {
-    if (connResQLink.readyState !== 1) return;
     const rawPacket = data.toString();
+    
+    // DEBUG LOG: See every packet coming from the Philippines
+    if (rawPacket.startsWith('#')) return; // Ignore server messages
+    console.log("RX:", rawPacket.trim());
 
-    // --- 🛡️ GHOST BLOCKER: PREVENT INTERNET ECHOES ---
-    if (rawPacket.includes("TCPIP*")) return; 
+    if (connResQLink.readyState !== 1) return;
+
+    // --- 🛡️ GHOST BLOCKER (TEMPORARILY DISABLED FOR DEBUGGING) ---
+    // if (rawPacket.includes("TCPIP*")) return; 
 
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -192,7 +204,9 @@ client.on('data', async (data) => {
         const packetTime = extractPacketTime(rawPacket); 
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
+        
         if (existing && existing.isRegistered) {
+            console.log(`MATCH FOUND: Processing packet for ${callsign}`);
             const updateFields = {
                 lat: lat.toFixed(4), 
                 lng: lng.toFixed(4),
@@ -214,7 +228,6 @@ client.on('data', async (data) => {
     }
 });
 
-// Use the dynamic port Railway requires
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server fully live on port ${PORT}`);
