@@ -32,12 +32,18 @@ mongoose.connect(uriResQLink, {
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server fully live on port ${PORT}`));
 }).catch(err => console.error("❌ DB Connection Failed:", err));
 
+// --- DATABASE SCHEMA UPDATE ---
 const trackerSchema = new mongoose.Schema({
     callsign: { type: String, unique: true },
     lat: String, lng: String, symbol: String,
-    path: { type: [[Number]], default: [] },
-    details: String, ownerName: String, contactNum: String,
-    emergencyName: String, emergencyNum: String,  
+    // CHANGED: path now stores an array of objects with coordinates and timestamps
+    path: [{
+        lat: Number,
+        lng: Number,
+        timestamp: { type: Date, default: Date.now }
+    }],
+    ownerName: String, contactNum: String,
+    emergencyName: String, emergencyNum: String,
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 });
@@ -171,24 +177,43 @@ client.on('data', async (data) => {
     const rawPacket = data.toString();
     if (!rawPacket.startsWith('#')) console.log("RX:", rawPacket.trim());
     if (mongoose.connection.readyState !== 1) return;
+
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
+
     if (latMatch && lngMatch) {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
+        
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
             console.log(`✅ MATCH: Updating ${callsign} on map.`);
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
+            const uplinkTime = new Date(); // Capture the exact time of this specific uplink
+
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
-                { lat: cleanLat.toString(), lng: cleanLng.toString(), lastSeen: new Date(), $push: { path: { $each: [[cleanLat, cleanLng]], $slice: -20 } } },
+                { 
+                    lat: cleanLat.toString(), 
+                    lng: cleanLng.toString(), 
+                    lastSeen: uplinkTime,
+                    // UPDATED: Stores coordinates and a dedicated timestamp for this specific point
+                    $push: { 
+                        path: { 
+                            $each: [{ 
+                                lat: cleanLat, 
+                                lng: cleanLng, 
+                                timestamp: uplinkTime 
+                            }], 
+                            $slice: -20 
+                        } 
+                    } 
+                },
                 { new: true }
             );
             
-            // Trigger update with total registered count
             const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount }); 
         }
