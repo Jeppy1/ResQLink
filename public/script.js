@@ -1,6 +1,8 @@
+// 1. Initialize Pusher
 const pusher = new Pusher('899f970a7cf34c9a73a9', { cluster: 'ap1' });
 const channel = pusher.subscribe('aprs-channel');
 
+// 2. Map & State Setup
 var map = L.map('map').setView([13.5857, 124.2160], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -9,12 +11,14 @@ var trackPaths = {};
 var trackCoords = {};
 let userRole = '';
 
+// Icons Mapping
 function getSymbolIcon(symbol) {
     const iconMapping = { '/[': 'human.png', '/r': 'igate.png', '/1': 'station.png', '/>': 'car.png', '/-': 'house.png', '/a': 'ambulance.png', '/f': 'fire_truck.png' };
     const fileName = iconMapping[symbol] || 'default-pin.png';
     return L.icon({ iconUrl: `icons/${fileName}`, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -15] });
 }
 
+// Date Parser
 function parseMongoDate(rawDate) {
     if (!rawDate) return null;
     if (typeof rawDate === 'object' && rawDate.$date) return new Date(rawDate.$date);
@@ -22,6 +26,7 @@ function parseMongoDate(rawDate) {
     return isNaN(dateObj.getTime()) ? null : dateObj;
 }
 
+// Geolocation Reverse Lookup
 async function getAddress(lat, lng) {
     try {
         const res = await fetch(`/api/get-address?lat=${lat}&lng=${lng}`);
@@ -30,6 +35,7 @@ async function getAddress(lat, lng) {
     } catch (e) { return "Location Found"; }
 }
 
+// --- UI: REGISTERED LIST ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
     const headerCount = document.getElementById('registered-header-count');
@@ -46,20 +52,28 @@ function updateRegisteredList(data) {
     
     const itemHTML = `
         <div class="station-item" id="list-${data.callsign}" onclick="focusStation('${data.callsign}')">
-            <div><b style="color:#38bdf8;">${data.callsign}</b><br><span style="font-size:10px; color:#94a3b8;">${hasSignal ? (data.ownerName || 'Custodian') : "Waiting..."}</span></div>
+            <div>
+                <b style="color:#38bdf8;">${data.callsign}</b><br>
+                <span style="font-size:10px; color:#94a3b8;">${hasSignal ? (data.ownerName || 'Custodian') : "Waiting for signal..."}</span>
+            </div>
             <span class="status-indicator" style="width:8px; height:8px; border-radius:50%; background:${isOnline ? '#22c55e':'#64748b'};"></span>
         </div>`;
+
     if (existingItem) existingItem.outerHTML = itemHTML;
     else list.insertAdjacentHTML('beforeend', itemHTML);
 }
 
+// --- UI: MAP INTERACTION ---
 function focusStation(callsign) {
     if (markers[callsign]) {
         map.setView(markers[callsign].getLatLng(), 15, { animate: true });
         markers[callsign].openPopup();
+    } else {
+        alert(`${callsign} has not sent a signal yet.`);
     }
 }
 
+// --- CORE: REAL-TIME PACKET PROCESSING ---
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, path, lastSeen, isRegistered } = data;
     updateRegisteredList(data);
@@ -67,13 +81,18 @@ async function updateMapAndUI(data) {
     if (!lat || !lng || lat === "null" || lng === "null") return;
     const pos = [parseFloat(lat), parseFloat(lng)];
 
+    // Handle Pathing
     trackCoords[callsign] = path || [];
-    if (trackPaths[callsign]) trackPaths[callsign].setLatLngs(trackCoords[callsign]);
-    else if (trackCoords[callsign].length > 0) trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, opacity: 0.6 }).addTo(map);
+    if (trackPaths[callsign]) {
+        trackPaths[callsign].setLatLngs(trackCoords[callsign]);
+    } else if (trackCoords[callsign].length > 0) {
+        trackPaths[callsign] = L.polyline(trackCoords[callsign], { color: '#007bff', weight: 3, opacity: 0.6 }).addTo(map);
+    }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
     const timeStr = parseMongoDate(lastSeen) ? parseMongoDate(lastSeen).toLocaleTimeString() : "Receiving...";
     
+    // Update Activity Table
     const tbody = document.getElementById('history-body');
     if (tbody) {
         let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
@@ -81,32 +100,76 @@ async function updateMapAndUI(data) {
         targetRow.innerHTML = `<td style="padding:5px;">${callsign}</td><td>${lat}</td><td>${lng}</td><td>${timeStr}</td>`;
     }
 
-    const popupContent = `<div style="font-family:sans-serif; min-width:200px;"><h4 style="margin:0; color:#38bdf8;">${callsign}</h4><b>Custodian:</b> ${ownerName || 'N/A'}<br><b>📍 Address:</b> ${currentAddr}<br><b>🕒 Last Seen:</b> ${timeStr}</div>`;
+    // Set Popup Content
+    const popupContent = `
+        <div style="font-family:sans-serif; min-width:200px;">
+            <h4 style="margin:0 0 5px 0; color:#38bdf8;">${callsign}</h4>
+            <b>Custodian:</b> ${ownerName || 'N/A'}<br>
+            <hr style="margin:8px 0; opacity:0.1;">
+            <b>📍 Address:</b> ${currentAddr}<br>
+            <b>🕒 Last Seen:</b> ${timeStr}
+        </div>`;
 
-    if (markers[callsign]) markers[callsign].setLatLng(pos).setPopupContent(popupContent);
-    else markers[callsign] = L.marker(pos, { icon: getSymbolIcon(symbol) }).addTo(map).bindPopup(popupContent);
+    if (markers[callsign]) {
+        markers[callsign].setLatLng(pos).setPopupContent(popupContent);
+    } else {
+        markers[callsign] = L.marker(pos, { icon: getSymbolIcon(symbol) }).addTo(map).bindPopup(popupContent);
+    }
     
-    document.getElementById('status-text').innerText = "Connected to APRS-IS";
-    document.getElementById('status-dot').style.color = "#22c55e";
+    // Update Global Connection Status once data flows
+    const statusText = document.getElementById('status-text');
+    const statusDot = document.getElementById('status-dot');
+    if (statusText) statusText.innerText = "Connected to APRS-IS";
+    if (statusDot) statusDot.style.color = "#22c55e";
 }
 
+// --- INITIALIZATION ---
 channel.bind('new-data', updateMapAndUI);
 
 window.onload = async () => {
-    userRole = localStorage.getItem('userRole') || 'viewer';
-    const roleText = document.getElementById('role-text');
-    if (roleText) roleText.innerText = (userRole === 'admin') ? "System Admin" : "Field Staff";
+    try {
+        // Handle User Role UI
+        userRole = localStorage.getItem('userRole') || 'viewer';
+        const roleText = document.getElementById('role-text');
+        const roleBadge = document.getElementById('role-badge');
+        if (roleText) {
+            roleText.innerText = (userRole === 'admin') ? "System Admin" : "Field Staff";
+            if (roleBadge) roleBadge.classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
+        }
 
-    const res = await fetch(`/api/positions?t=${Date.now()}`);
-    if (res.status === 401) { window.location.href = '/'; return; }
-    const history = await res.json();
-    if (Array.isArray(history)) {
-        document.getElementById('registered-header-count').innerText = `(${history.length})`;
-        history.forEach(d => updateMapAndUI(d));
+        // Load Active Positions
+        const res = await fetch(`/api/positions?t=${Date.now()}`);
+        if (res.status === 401) { window.location.href = '/'; return; }
+        
+        const history = await res.json();
+        if (Array.isArray(history)) {
+            const headCount = document.getElementById('registered-header-count');
+            if (headCount) headCount.innerText = `(${history.length})`;
+            history.forEach(d => updateMapAndUI(d));
+        }
+    } catch (err) {
+        console.error("Initialization failed:", err);
     }
 };
 
+// --- AUTH & CONTROLS ---
 function handleLogout() {
     localStorage.removeItem('userRole');
     window.location.href = '/api/logout';
+}
+
+function trackCallsign() {
+    const input = document.getElementById('callSign').value.toUpperCase().trim();
+    if (markers[input]) {
+        map.setView(markers[input].getLatLng(), 15, { animate: true });
+        markers[input].openPopup();
+    } else {
+        alert("Callsign not found or offline.");
+    }
+}
+
+// Optional: CSV Download Implementation if needed
+function downloadAllPaths() {
+    // Logic to generate CSV from trackCoords
+    alert("Preparing CSV report...");
 }
