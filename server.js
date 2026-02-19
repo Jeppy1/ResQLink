@@ -51,7 +51,6 @@ const pusher = new Pusher({
     useTLS: true
 });
 
-// Cache to store addresses and prevent API spam
 const addressCache = {}; 
 
 // --- 4. ROUTES ---
@@ -70,15 +69,10 @@ app.post('/api/login', (req, res) => {
     res.status(401).json({ error: "Invalid Credentials" });
 });
 
-// Intelligent Geocoding Route with Caching
 app.get('/api/get-address', async (req, res) => {
-    const { lat, lng, callsign } = req.query;
+    const { lat, lng } = req.query;
     const cacheKey = `${lat},${lng}`;
-
-    // 1. Check if we already have this exact location in cache
-    if (addressCache[cacheKey]) {
-        return res.json({ address: addressCache[cacheKey] });
-    }
+    if (addressCache[cacheKey]) return res.json({ address: addressCache[cacheKey] });
 
     try {
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
@@ -86,13 +80,9 @@ app.get('/api/get-address', async (req, res) => {
         });
         const data = await response.json();
         const address = data.display_name ? data.display_name.split(',').slice(0, 3).join(',') : `${lat}, ${lng}`;
-        
-        // 2. Save to cache before returning
         addressCache[cacheKey] = address;
         res.json({ address });
-    } catch (err) { 
-        res.json({ address: `${lat}, ${lng}` }); 
-    }
+    } catch (err) { res.json({ address: `${lat}, ${lng}` }); }
 });
 
 app.get('/', (req, res) => {
@@ -114,15 +104,25 @@ const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "rotate.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
+        console.log("📡 Connected to APRS-IS Network");
     });
 }
 connectAPRS();
 
-client.on('close', () => { setTimeout(connectAPRS, 5000); });
+client.on('close', () => { 
+    console.log("⚠️ APRS Connection Closed. Retrying...");
+    setTimeout(connectAPRS, 5000); 
+});
 
 client.on('data', async (data) => {
     const rawPacket = data.toString();
-    if (rawPacket.startsWith('#')) return; 
+    
+    // --- DEBUG FEATURE: LOG ALL INCOMING PACKETS ---
+    if (!rawPacket.startsWith('#')) {
+        console.log("RX:", rawPacket.trim());
+    }
+
+    if (mongoose.connection.readyState !== 1) return;
 
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -133,7 +133,11 @@ client.on('data', async (data) => {
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
+        
         if (existing && existing.isRegistered) {
+            // --- DEBUG FEATURE: LOG MATCHES ---
+            console.log(`✅ MATCH: Processing registered packet for ${callsign}`);
+
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
 
