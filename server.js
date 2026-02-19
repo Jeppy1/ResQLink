@@ -88,11 +88,8 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             isRegistered: true, lastSeen: new Date()
         };
         const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
-        
-        // Count for real-time headcount
         const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
         pusher.trigger("aprs-channel", "new-data", { ...newStation.toObject(), totalRegistered: totalCount });
-        
         res.status(200).json({ message: "Registered!", data: newStation });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -105,9 +102,7 @@ app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
             const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
             pusher.trigger("aprs-channel", "delete-data", { callsign, totalRegistered: totalCount });
             res.status(200).json({ message: "Deleted" });
-        } else {
-            res.status(404).json({ error: "Not Found" });
-        }
+        } else { res.status(404).json({ error: "Not Found" }); }
     } catch (err) { res.status(500).json({ error: "Server Error" }); }
 });
 
@@ -137,22 +132,18 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     } catch (err) { res.status(500).json([]); }
 });
 
-// --- APRS LOGIC ---
+// --- 5. APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "rotate.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
-        console.log("📡 Connected to rotate.aprs2.net");
     });
 }
 connectAPRS();
 client.on('close', () => { setTimeout(connectAPRS, 5000); });
 client.on('data', async (data) => {
     const rawPacket = data.toString();
-    
-    // --- 🛠️ DEBUG RX LOGGING ---
     if (!rawPacket.startsWith('#')) console.log("RX:", rawPacket.trim());
-
     if (mongoose.connection.readyState !== 1) return;
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
@@ -162,9 +153,6 @@ client.on('data', async (data) => {
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
-            console.log(`✅ MATCH: Updating ${callsign} on map.`);
-            const cleanLat = parseFloat(lat.toFixed(4));
-            const cleanLng = parseFloat(lng.toFixed(4));
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
                 { lat: cleanLat.toString(), lng: cleanLng.toString(), lastSeen: new Date(), $push: { path: { $each: [[cleanLat, cleanLng]], $slice: -20 } } },
