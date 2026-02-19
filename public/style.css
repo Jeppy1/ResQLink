@@ -13,15 +13,15 @@ body, html {
 .side-panel {
     width: 280px; background: #1e293b; padding: 20px;
     box-shadow: -2px 0 15px rgba(0,0,0,0.5);
-    display: flex; flex-direction: column;
-    z-index: 1000; color: white;
+    display: flex; flex-direction: column; /* CRITICAL: Enables margin-top:auto logic */
+    z-index: 1000; color: white; height: 100vh;
 }
 
 .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-.logo { max-width: 140px; height: auto; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.2)); }
+.logo { max-width: 140px; height: auto; }
 
 /* --- 3. ROLE, STATUS & TOP BUTTONS --- */
-.user-info { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; } /* Updated for button spacing */
+.user-info { margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
 
 .role-badge {
     padding: 6px 14px; border-radius: 50px;
@@ -32,15 +32,14 @@ body, html {
 .role-admin { background-color: #22c55e !important; color: white; }
 .role-viewer { background-color: #3b82f6 !important; color: white; }
 
-/* Download button relocated next to badge */
+/* FIXED: Clean Circular Export Button */
 .btn-download {
-    background: #334155; border: 1px solid rgba(56, 189, 248, 0.2);
-    color: #38bdf8; width: 32px; height: 32px;
-    padding: 0; border-radius: 50%;
-    font-size: 14px; display: flex;
-    align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+    background: none; border: none; color: #38bdf8; 
+    cursor: pointer; font-size: 20px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: 0.2s;
 }
-.btn-download:hover { background: #38bdf8; color: white; }
+.btn-download:hover { color: white; transform: scale(1.1); }
 
 .status-box {
     padding: 10px; background: rgba(15, 23, 42, 0.5);
@@ -56,16 +55,10 @@ body, html {
 }
 .button-row { display: flex; gap: 8px; margin-bottom: 20px; }
 
-/* Headcount Alignment */
-.registered-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 10px; font-size: 13px; font-weight: 600;
-}
-
 #registered-list { 
-    max-height: 38vh; /* Scalable height for many callsigns */
+    max-height: 35vh; 
     overflow-y: auto; 
-    margin-bottom: 20px; 
+    margin-bottom: 10px; 
     padding-right: 5px; 
 }
 
@@ -76,8 +69,6 @@ body, html {
     border-radius: 8px; margin-bottom: 5px; cursor: pointer;
 }
 .status-indicator { width: 8px; height: 8px; border-radius: 50%; }
-.online-dot { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
-.offline-dot { background-color: #64748b; }
 
 /* --- 5. LOGIN PAGE (PERFECT - UNTOUCHED) --- */
 .login-body {
@@ -131,13 +122,10 @@ body, html {
 .input-field i { position: absolute; left: 18px; color: #38bdf8; font-size: 16px; z-index: 5; }
 .input-field select {
     appearance: none; width: 100%; padding: 15px 15px 15px 55px !important;
-    background: transparent; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='3'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat; background-position: right 18px center; background-size: 16px;
-    border: none; color: white; cursor: pointer;
+    background: transparent; border: none; color: white; cursor: pointer;
 }
-.input-field select option { background: #1e293b; color: white; }
 
-/* --- 7. BUTTONS & ACTIVITY TABLE --- */
+/* --- 7. BUTTONS & ACTIVITY TABLE (BOTTOM POSITIONED) --- */
 button {
     flex: 1; padding: 10px; background-color: #0284c7;
     color: white; border: none; border-radius: 8px;
@@ -145,7 +133,12 @@ button {
 }
 button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
 
-.history-container { margin-top: auto; padding-top: 20px; }
+/* Pinned to Bottom */
+.history-container { 
+    margin-top: auto; 
+    padding-top: 20px; 
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
 .activity-table { width: 100%; border-collapse: collapse; font-size: 11px; }
 .activity-table th { text-align: left; color: #38bdf8; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .activity-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
