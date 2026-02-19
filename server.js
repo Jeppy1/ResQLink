@@ -23,13 +23,10 @@ app.use(session({
 
 // --- 2. DATABASE ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
-
-// Using Global Connect for better stability and login handling
 mongoose.connect(uriResQLink, { 
     serverSelectionTimeoutMS: 5000 
 }).then(() => {
     console.log("✅ Connected to MongoDB");
-    // Only start server once DB is ready to handle logins
     const PORT = process.env.PORT || 8080;
     server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server fully live on port ${PORT}`));
 }).catch(err => console.error("❌ DB Connection Failed:", err));
@@ -43,10 +40,9 @@ const trackerSchema = new mongoose.Schema({
     isRegistered: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now }
 });
-
 const TrackerResQLink = mongoose.model('Tracker', trackerSchema);
 
-// --- 3. PUSHER --- 
+// --- 3. PUSHER & CACHE --- 
 const pusher = new Pusher({
     appId: process.env.PUSHER_APP_ID,
     key: process.env.PUSHER_KEY,
@@ -54,6 +50,9 @@ const pusher = new Pusher({
     cluster: process.env.PUSHER_CLUSTER,
     useTLS: true
 });
+
+// Cache to store addresses and prevent API spam
+const addressCache = {}; 
 
 // --- 4. ROUTES ---
 function isAuthenticated(req, res, next) {
@@ -69,6 +68,31 @@ app.post('/api/login', (req, res) => {
         return req.session.save(() => res.json({ success: true, role: 'admin' }));
     } 
     res.status(401).json({ error: "Invalid Credentials" });
+});
+
+// Intelligent Geocoding Route with Caching
+app.get('/api/get-address', async (req, res) => {
+    const { lat, lng, callsign } = req.query;
+    const cacheKey = `${lat},${lng}`;
+
+    // 1. Check if we already have this exact location in cache
+    if (addressCache[cacheKey]) {
+        return res.json({ address: addressCache[cacheKey] });
+    }
+
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+            headers: { 'User-Agent': 'ResQLink-Disaster-App-v2' }
+        });
+        const data = await response.json();
+        const address = data.display_name ? data.display_name.split(',').slice(0, 3).join(',') : `${lat}, ${lng}`;
+        
+        // 2. Save to cache before returning
+        addressCache[cacheKey] = address;
+        res.json({ address });
+    } catch (err) { 
+        res.json({ address: `${lat}, ${lng}` }); 
+    }
 });
 
 app.get('/', (req, res) => {
@@ -90,7 +114,6 @@ const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "rotate.aprs2.net", () => {
         client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
-        console.log("Connected to rotate.aprs2.net");
     });
 }
 connectAPRS();
@@ -110,7 +133,6 @@ client.on('data', async (data) => {
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
 
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
-        
         if (existing && existing.isRegistered) {
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
