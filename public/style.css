@@ -415,3 +415,43 @@ button:hover {
     border-radius: 6px;
     font-size: 14px;
 }
+
+.user-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Pushes badge left and CSV icon right */
+    width: 100%;
+}
+
+.role-badge {
+    padding: 6px 14px;
+    border-radius: 50px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Specific styling for the circular CSV icon on the right */
+.btn-download {
+    background: #334155; 
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    color: #38bdf8; 
+    width: 32px; 
+    height: 32px; 
+    border-radius: 50%; /* Ensures a perfect circle */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0; /* Prevents the circle from becoming an oval */
+    transition: 0.2s;
+}
+
+.btn-download:hover {
+    background: #38bdf8;
+    color: white;
+}
