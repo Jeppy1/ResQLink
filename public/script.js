@@ -354,19 +354,24 @@ async function updateMapAndUI(data) {
 
 // Update the Floating Window
 function updateFloatingWindow(data) {
-    const container = document.getElementById('floating-items');
+    const container = document.getElementById('floating-items'); 
     if (!container || !data.isRegistered) return;
 
     let existing = document.getElementById(`float-${data.callsign}`);
+    
+    // Using a smaller icon and raw callsign for maximum space saving
     const itemHTML = `
         <div class="floating-item" id="float-${data.callsign}" onclick="focusStation('${data.callsign}')">
-            <i class="fa-solid fa-satellite-dish" style="font-size: 11px; margin-right: 8px; color: #38bdf8;"></i>
+            <i class="fa-solid fa-location-dot" style="font-size: 9px; margin-right: 4px; color: #38bdf8; opacity: 0.7;"></i>
             ${data.callsign}
         </div>
     `;
 
-    if (existing) existing.outerHTML = itemHTML;
-    else container.insertAdjacentHTML('beforeend', itemHTML);
+    if (existing) {
+        existing.outerHTML = itemHTML;
+    } else {
+        container.insertAdjacentHTML('beforeend', itemHTML);
+    }
 }
 
     const currentAddr = await getAddress(pos[0], pos[1]);
