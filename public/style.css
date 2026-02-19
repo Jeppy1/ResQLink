@@ -25,6 +25,7 @@ body, html {
     padding: 6px 14px; border-radius: 50px;
     font-size: 10px; font-weight: 800;
     text-transform: uppercase; display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255, 255, 255, 0.1);
 }
 .role-admin { background-color: #22c55e !important; color: white; }
 .role-viewer { background-color: #3b82f6 !important; color: white; }
@@ -63,7 +64,7 @@ button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
 .online-dot { background-color: #22c55e; box-shadow: 0 0 8px #22c55e; }
 .offline-dot { background-color: #64748b; }
 
-/* --- 5. LOGIN PAGE (RESTORED CENTERED LAYOUT) --- */
+/* --- 5. LOGIN PAGE (RESTORED CENTERED LAYOUT & ICON POSITIONING) --- */
 .login-body {
     height: 100vh; display: flex;
     align-items: center; justify-content: center;
@@ -76,11 +77,44 @@ button:hover { background-color: #0ea5e9; transform: translateY(-1px); }
     text-align: center; border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .login-logo { width: 260px; margin: 0 auto 30px auto; display: block; }
+
 .input-group { position: relative; margin-bottom: 20px; }
+
+/* Position Icons Inside Login Boxes */
+.input-group i:first-child {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #38bdf8; /* Visible light blue */
+    font-size: 16px;
+    z-index: 10;
+    pointer-events: none;
+}
+
 .input-group input {
-    width: 100%; padding: 12px 10px 12px 45px; 
+    width: 100%; padding: 12px 10px 12px 45px; /* 45px left padding keeps text off the icon */
     background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px; color: white; box-sizing: border-box;
+    outline: none;
+}
+
+.input-group input:focus { border-color: #38bdf8; }
+
+#togglePassword {
+    position: absolute; right: 15px; top: 50%;
+    transform: translateY(-50%); cursor: pointer;
+    color: #38bdf8; z-index: 10;
+}
+
+/* Authorized Personnel Text to Red */
+.login-footer {
+    margin-top: 20px;
+    font-size: 12px;
+    color: #ef4444; /* Explicit Red */
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* --- 6. REGISTRATION MODAL --- */
