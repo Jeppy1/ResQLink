@@ -16,7 +16,7 @@ const symbolNames = { '/[': 'Human', '/r': 'iGate', '/1': 'Digital Station', '/>
 function getSymbolIcon(symbol) {
     const iconMapping = { '/[': 'human.png', '/r': 'igate.png', '/1': 'station.png', '/>': 'car.png', '/-': 'house.png', '/a': 'ambulance.png', '/f': 'fire_truck.png' };
     const fileName = iconMapping[symbol] || 'default-pin.png';
-    return L.icon({ iconUrl: `icons/${fileName}`, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -15], symbolCode: symbol });
+    return L.icon({ iconUrl: `icons/${fileName}`, iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -15] });
 }
 
 function parseMongoDate(rawDate) {
@@ -26,7 +26,7 @@ function parseMongoDate(rawDate) {
     return isNaN(dateObj.getTime()) ? null : dateObj;
 }
 
-// RESTORED: Geolocation logic to fix the crash
+// RESTORED: ADDRESS FUNCTION (Crucial for Map Icons)
 async function getAddress(lat, lng) {
     try {
         const res = await fetch(`/api/get-address?lat=${lat}&lng=${lng}`);
@@ -35,7 +35,45 @@ async function getAddress(lat, lng) {
     } catch (e) { return "Location Found"; }
 }
 
-// UI UPDATES
+// --- MODAL & REGISTRATION LOGIC ---
+function toggleRegFields() {
+    const type = document.getElementById('stationType').value;
+    document.getElementById('tracker-only-fields').style.display = (type === 'igate') ? 'none' : 'block';
+}
+
+function registerStation() {
+    const cs = document.getElementById('callSign').value.toUpperCase().trim();
+    if (!cs) return alert("Enter callsign.");
+    document.getElementById('modalCallsignDisplay').innerText = cs;
+    document.getElementById('regModal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('regModal').style.display = 'none'; }
+
+async function submitRegistration() {
+    const cs = document.getElementById('modalCallsignDisplay').innerText;
+    const type = document.getElementById('stationType').value;
+    const data = {
+        callsign: cs,
+        ownerName: document.getElementById('ownerName').value,
+        contactNum: document.getElementById('contactNum').value,
+        emergencyName: document.getElementById('emergencyName').value || 'N/A',
+        emergencyNum: document.getElementById('emergencyNum').value || 'N/A',
+        symbol: (type === 'igate') ? '/r' : '/[',
+        isRegistered: true
+    };
+
+    try {
+        const res = await fetch('/api/register-station', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(data) 
+        });
+        if (res.ok) { location.reload(); }
+    } catch (e) { console.error(e); }
+}
+
+// --- MAP & UI UPDATES ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
     const headerCount = document.getElementById('registered-header-count');
@@ -49,16 +87,14 @@ function updateRegisteredList(data) {
     const lastSeenDate = parseMongoDate(data.lastSeen);
     const hasSignal = data.lat && data.lng && data.lat !== "null";
     const isOnline = hasSignal && lastSeenDate && (new Date() - lastSeenDate) < 600000; 
+    
     const statusClass = isOnline ? 'online-dot' : 'offline-dot';
     const subText = hasSignal ? (data.ownerName || 'Custodian') : "Waiting for signal...";
 
     const itemHTML = `
-        <div class="station-item" id="list-${data.callsign}" onclick="focusStation('${data.callsign}')">
-            <div>
-                <b style="color: #38bdf8;">${data.callsign}</b><br>
-                <span style="font-size: 10px; color: #94a3b8;">${subText}</span>
-            </div>
-            <span class="status-indicator ${statusClass}"></span>
+        <div class="station-item" id="list-${data.callsign}" onclick="focusStation('${data.callsign}')" style="display:flex; justify-content:space-between; align-items:center; padding:10px; background:rgba(15,23,42,0.4); border-radius:8px; margin-bottom:5px; cursor:pointer;">
+            <div><b style="color:#38bdf8;">${data.callsign}</b><br><span style="font-size:10px; color:#94a3b8;">${subText}</span></div>
+            <span class="status-indicator ${statusClass}" style="width:8px; height:8px; border-radius:50%; background:${isOnline ? '#22c55e':'#64748b'};"></span>
         </div>`;
     if (existingItem) existingItem.outerHTML = itemHTML;
     else list.insertAdjacentHTML('beforeend', itemHTML);
@@ -68,10 +104,9 @@ function focusStation(callsign) {
     if (markers[callsign]) {
         map.setView(markers[callsign].getLatLng(), 15, { animate: true });
         markers[callsign].openPopup();
-    } else { alert(`${callsign} has not sent a signal yet.`); }
+    }
 }
 
-// CORE UPDATE LOGIC
 async function updateMapAndUI(data) {
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     updateRegisteredList(data); 
@@ -87,22 +122,22 @@ async function updateMapAndUI(data) {
     const currentAddr = await getAddress(pos[0], pos[1]);
     const timeStr = parseMongoDate(lastSeen) ? parseMongoDate(lastSeen).toLocaleTimeString() : "Receiving...";
     
-    // RESTORED: Popup content
-    const ownerLabel = symbol === '/r' ? 'Station Custodian' : 'Owner/Responder';
-    const emergencySection = symbol !== '/r' ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Contact:</b> ${emergencyNum || 'N/A'}` : '';
-    const popupContent = `<div style="font-family:sans-serif; min-width:200px;"><h4 style="margin:0 0 5px 0; color:#38bdf8;">${callsign}</h4><div style="font-size:12px; line-height:1.4;"><b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}<br>${emergencySection}<hr style="margin:8px 0; opacity:0.2;"><b>📍 Address:</b> ${currentAddr}<br><b>🕒 Last Seen:</b> ${timeStr}</div></div>`;
-
     // Activity Table
     const tbody = document.getElementById('history-body');
     if (tbody) {
         let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
         let targetRow = existingRow || tbody.insertRow(0);
-        targetRow.innerHTML = `<td>${callsign}</td><td>${lat}</td><td>${lng}</td><td>${timeStr}</td>`;
+        targetRow.innerHTML = `<td style="padding:5px;">${callsign}</td><td>${lat}</td><td>${lng}</td><td>${timeStr}</td>`;
     }
 
     // Status UI
     document.getElementById('status-text').innerText = "Connected to APRS-IS";
     document.getElementById('status-dot').style.color = "#22c55e";
+
+    // RESTORED: Popup Logic
+    const ownerLabel = symbol === '/r' ? 'Station Custodian' : 'Owner/Responder';
+    const emergencySection = symbol !== '/r' ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Contact:</b> ${emergencyNum || 'N/A'}` : '';
+    const popupContent = `<div style="font-family:sans-serif; min-width:200px;"><h4 style="margin:0 0 5px 0; color:#38bdf8;">${callsign}</h4><div style="font-size:12px; line-height:1.4;"><b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}<br>${emergencySection}<hr style="margin:8px 0; opacity:0.2;"><b>📍 Address:</b> ${currentAddr}<br><b>🕒 Last Seen:</b> ${timeStr}</div></div>`;
 
     const customIcon = getSymbolIcon(symbol);
     if (markers[callsign]) { 
@@ -123,19 +158,19 @@ window.onload = async () => {
             roleText.innerText = (userRole === 'admin') ? "System Admin" : "Field Staff";
             roleBadge.classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
+
         const res = await fetch(`/api/positions?t=${Date.now()}`);
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
         if (Array.isArray(history)) {
-            const headerCount = document.getElementById('registered-header-count');
-            if (headerCount) headerCount.innerText = `(${history.length})`;
+            document.getElementById('registered-header-count').innerText = `(${history.length})`;
             history.forEach(d => updateMapAndUI(d));
         }
     } catch (err) { console.error("Initialization failed:", err); }
 };
 
-// Functions for Export, Register, Clear and Logout...
 function handleLogout() { localStorage.removeItem('userRole'); window.location.href = '/api/logout'; }
-function downloadAllPaths() { /* logic */ }
-function trackCallsign() { /* logic */ }
-function submitRegistration() { /* logic */ }
+function trackCallsign() {
+    const input = document.getElementById('callSign').value.toUpperCase().trim();
+    if (markers[input]) { map.setView(markers[input].getLatLng(), 15, { animate: true }); markers[input].openPopup(); }
+}
