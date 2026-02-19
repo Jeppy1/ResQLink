@@ -66,12 +66,20 @@ function isAdmin(req, res, next) {
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    if (username === 'admin' && password === 'resqlink2026') {
+    // Enhanced login logic to handle staff/admin roles
+    if (password === 'resqlink2026' && (username === 'admin' || username === 'staff')) {
         req.session.user = username;
-        req.session.role = 'admin';
-        return req.session.save(() => res.json({ success: true, role: 'admin' }));
+        req.session.role = (username === 'admin') ? 'admin' : 'viewer';
+        return req.session.save(() => res.json({ success: true, role: req.session.role }));
     } 
     res.status(401).json({ error: "Invalid Credentials" });
+});
+
+// FIXED: Added missing Logout route
+app.get('/api/logout', (req, res) => {
+    req.session.destroy(() => {
+        res.redirect('/');
+    });
 });
 
 app.post('/api/register-station', isAuthenticated, async (req, res) => {
@@ -88,19 +96,24 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             isRegistered: true, lastSeen: new Date()
         };
         const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
-        pusher.trigger("aprs-channel", "new-data", newStation);
+        
+        // Include headcount in registration trigger
+        const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+        pusher.trigger("aprs-channel", "new-data", { ...newStation.toObject(), totalRegistered: totalCount });
+        
         res.status(200).json({ message: "Registered!", data: newStation });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// FIXED: DELETE ROUTE DEFINITION
 app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
     try {
         const callsign = req.params.callsign.toUpperCase().trim();
         console.log(`🗑️ DELETE REQUEST RECEIVED FOR: ${callsign}`);
         const deleted = await TrackerResQLink.findOneAndDelete({ callsign: callsign });
         if (deleted) {
-            pusher.trigger("aprs-channel", "delete-data", { callsign });
+            // Updated to send new total headcount after deletion
+            const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+            pusher.trigger("aprs-channel", "delete-data", { callsign, totalRegistered: totalCount });
             res.status(200).json({ message: "Deleted" });
         } else {
             res.status(404).json({ error: "Not Found" });
@@ -125,6 +138,7 @@ app.get('/', (req, res) => {
     if (req.session && req.session.user) res.sendFile(path.join(__dirname, 'public', 'index.html'));
     else res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/positions', isAuthenticated, async (req, res) => {
@@ -134,7 +148,7 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     } catch (err) { res.status(500).json([]); }
 });
 
-// --- APRS LOGIC ---
+// --- 5. APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "rotate.aprs2.net", () => {
@@ -164,7 +178,10 @@ client.on('data', async (data) => {
                 { lat: cleanLat.toString(), lng: cleanLng.toString(), lastSeen: new Date(), $push: { path: { $each: [[cleanLat, cleanLng]], $slice: -20 } } },
                 { new: true }
             );
-            pusher.trigger("aprs-channel", "new-data", updated.toObject()); 
+            
+            // Trigger update with total registered count
+            const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+            pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount }); 
         }
     }
 });
