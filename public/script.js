@@ -360,6 +360,7 @@ function updateFloatingWindow(data) {
     let existing = document.getElementById(`float-${data.callsign}`);
     const itemHTML = `
         <div class="floating-item" id="float-${data.callsign}" onclick="focusStation('${data.callsign}')">
+            <i class="fa-solid fa-satellite-dish" style="font-size: 11px; margin-right: 8px; color: #38bdf8;"></i>
             ${data.callsign}
         </div>
     `;
