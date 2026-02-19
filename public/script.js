@@ -113,9 +113,9 @@ async function submitRegistration() {
     finally { document.body.classList.remove('loading-process'); }
 }
 
-// --- STATION DELETION (FIXED URL LOGIC) ---
+// --- STATION DELETION ---
 async function deleteStation(callsign) {
-    stationToDelete = callsign.trim(); // Clean the callsign
+    stationToDelete = callsign.trim();
     document.getElementById('deleteCallsignDisplay').innerText = stationToDelete;
     document.getElementById('deleteConfirmModal').style.display = 'flex';
     
@@ -128,7 +128,6 @@ async function deleteStation(callsign) {
 
         document.body.classList.add('loading-process');
         try {
-            // FIXED: Ensure absolute path and no extra characters
             const response = await fetch(`/api/delete-station/${target}`, { method: 'DELETE' });
             if (response.ok) { 
                 closeDeleteModal(); 
@@ -144,7 +143,13 @@ async function deleteStation(callsign) {
 // --- CORE MAP LOGIC ---
 function updateRegisteredList(data) {
     const list = document.getElementById('registered-list');
+    const headerCount = document.getElementById('registered-header-count');
     if (!list || !data.isRegistered) return;
+
+    // Update global headcount if provided
+    if (data.totalRegistered !== undefined && headerCount) {
+        headerCount.innerText = `(${data.totalRegistered})`;
+    }
 
     let existingItem = document.getElementById(`list-${data.callsign}`);
     const lastSeenDate = parseMongoDate(data.lastSeen);
@@ -205,15 +210,21 @@ function executeClear() {
     }
 }
 
+// FIXED: Properly appends multiple callsigns to the table
 function updateRecentActivity(callsign, lat, lng, time) {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
+    
+    // Move existing row to top if it exists, otherwise create new
     let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
-    let targetRow = existingRow || tbody.insertRow(0);
-    targetRow.innerHTML = `<td>${callsign}</td><td><span style="color:#666;font-size:11px;">${lat}</span></td><td><span style="color:#666;font-size:11px;">${lng}</span></td><td>${time}</td>`;
-    if (existingRow) tbody.prepend(existingRow);
-    targetRow.classList.remove('row-update');
-    void targetRow.offsetWidth; 
+    if (existingRow) existingRow.remove();
+
+    let targetRow = tbody.insertRow(0);
+    targetRow.innerHTML = `<td>${callsign}</td><td><span style="color:#94a3b8;font-size:11px;">${lat}</span></td><td><span style="color:#94a3b8;font-size:11px;">${lng}</span></td><td>${time}</td>`;
+    
+    // Maintain a clean UI (limit to latest 10)
+    if (tbody.rows.length > 10) tbody.deleteRow(10);
+    
     targetRow.classList.add('row-update');
 }
 
@@ -230,8 +241,9 @@ function trackCallsign() {
     if (markers[input]) { map.setView(markers[input].getLatLng(), 15, { animate: true }); markers[input].openPopup(); }
 }
 
+// FIXED: Clears local session role before redirecting to logout route
 function handleLogout() { 
-    localStorage.removeItem('userRole'); 
+    localStorage.clear(); 
     window.location.href = '/api/logout'; 
 }
 
@@ -260,11 +272,29 @@ async function updateMapAndUI(data) {
 
     const typeName = symbolNames[symbol] || `Other Tracker (${symbol})`;
     const customIcon = getSymbolIcon(symbol);
-    const deleteBtn = userRole === 'admin' ? `<button onclick="deleteStation('${callsign}')" style="flex:1; background:#111827; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
+    const deleteBtn = userRole === 'admin' ? `<button onclick="deleteStation('${callsign}')" style="flex:1; background:#ef4444; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
     const isIGate = symbol === '/r';
     const ownerLabel = isIGate ? 'Station Custodian' : 'Owner/Responder';
     const emergencySection = !isIGate ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
-    const popupContent = `<div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;"><h4 style="margin:0 0 8px 0; color:#007bff; border-bottom: 1px solid #eee; padding-bottom:5px;">${callsign}</h4><div style="font-size: 13px; margin-bottom: 8px;"><b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br><b>Contact:</b> ${contactNum || 'N/A'}<br>${emergencySection}</div><div style="font-size: 12px; color: #d9534f; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div><div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 5px; border-radius: 4px; margin-bottom: 10px;"><b>Type:</b> ${typeName}<br><b>🕒 Last Seen:</b> ${timeStr}</div><div style="display: flex; gap: 5px;"><button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>${deleteBtn}</div></div>`;
+    
+    const popupContent = `
+        <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
+            <h4 style="margin:0 0 8px 0; color:#38bdf8; border-bottom: 1px solid #334155; padding-bottom:5px;">${callsign}</h4>
+            <div style="font-size: 13px; margin-bottom: 8px;">
+                <b>${ownerLabel}:</b> ${ownerName || 'N/A'}<br>
+                <b>Contact:</b> ${contactNum || 'N/A'}<br>
+                ${emergencySection}
+            </div>
+            <div style="font-size: 12px; color: #ef4444; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div>
+            <div style="font-size: 11px; color: #94a3b8; background: #0f172a; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
+                <b>Type:</b> ${typeName}<br>
+                <b>🕒 Last Seen:</b> ${timeStr}
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <button onclick="openConfirmModal('${callsign}')" style="flex: 1; background: #0284c7; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold;">Clear Path</button>
+                ${deleteBtn}
+            </div>
+        </div>`;
 
     if (markers[callsign]) {
         markers[callsign].setLatLng(pos).setIcon(customIcon).setPopupContent(popupContent);
@@ -279,16 +309,26 @@ async function updateMapAndUI(data) {
 channel.bind('connection-status', (data) => {
     const dot = document.getElementById('status-dot');
     const text = document.getElementById('status-text');
-    if (data.status === "Online") { text.innerText = "Connected to APRS-IS"; dot.style.color = "#22c55e"; } 
-    else { text.innerText = "Connection Lost"; dot.style.color = "#ef4444"; }
+    if (data.status === "Online") { 
+        text.innerText = "Connected to APRS-IS"; 
+        dot.style.color = "#22c55e"; 
+    } else { 
+        text.innerText = "Connection Lost"; 
+        dot.style.color = "#ef4444"; 
+    }
 });
 
 channel.bind('delete-data', (data) => {
-    const { callsign } = data;
+    const { callsign, totalRegistered } = data;
+    // Update headcount UI on deletion
+    if (document.getElementById('registered-header-count')) {
+        document.getElementById('registered-header-count').innerText = `(${totalRegistered})`;
+    }
     if (markers[callsign]) {
         map.removeLayer(markers[callsign]);
         if (trackPaths[callsign]) map.removeLayer(trackPaths[callsign]);
-        delete markers[callsign]; delete trackPaths[callsign];
+        delete markers[callsign]; 
+        delete trackPaths[callsign];
         const row = Array.from(document.getElementById('history-body').rows).find(r => r.cells[0].innerText === callsign);
         if (row) row.remove();
         const item = document.getElementById(`list-${callsign}`);
@@ -305,11 +345,21 @@ window.onload = async () => {
             document.getElementById('role-text').innerText = userRole === 'admin' ? "System Admin" : "Field Staff";
             document.getElementById('role-badge').classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
+        
         const res = await fetch(`/api/positions?t=${Date.now()}`);
         if (res.status === 401) { window.location.href = '/login.html'; return; }
-        if (res.ok) { document.getElementById('status-text').innerText = "Connected to APRS-IS"; document.getElementById('status-dot').style.color = "#22c55e"; }
+        
+        if (res.ok) { 
+            document.getElementById('status-text').innerText = "Connected to APRS-IS"; 
+            document.getElementById('status-dot').style.color = "#22c55e"; 
+        }
+        
         const history = await res.json();
         if (Array.isArray(history)) {
+            // Update initial headcount
+            if (document.getElementById('registered-header-count')) {
+                document.getElementById('registered-header-count').innerText = `(${history.length})`;
+            }
             history.sort((a, b) => (parseMongoDate(a.lastSeen) || 0) - (parseMongoDate(b.lastSeen) || 0));
             history.forEach(d => updateMapAndUI(d));
         }
