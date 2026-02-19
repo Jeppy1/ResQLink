@@ -419,7 +419,7 @@ button:hover {
 .user-info {
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Pushes badge left and CSV icon right */
+    justify-content: space-between;
     width: 100%;
 }
 
@@ -434,24 +434,22 @@ button:hover {
     gap: 8px;
 }
 
-/* Specific styling for the circular CSV icon on the right */
+/* Minimalist Icon-only style */
 .btn-download {
-    background: #334155; 
-    border: 1px solid rgba(56, 189, 248, 0.2);
-    color: #38bdf8; 
-    width: 32px; 
-    height: 32px; 
-    border-radius: 50%; /* Ensures a perfect circle */
+    background: none; /* Removed background */
+    border: none;     /* Removed border */
+    color: #38bdf8;   /* ResQLink Blue */
+    font-size: 20px;  /* Sized slightly larger for visibility */
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    padding: 0;
-    flex-shrink: 0; /* Prevents the circle from becoming an oval */
-    transition: 0.2s;
+    transition: color 0.2s, transform 0.2s;
 }
 
 .btn-download:hover {
-    background: #38bdf8;
-    color: white;
+    color: #ffffff;   /* Glow white on hover */
+    transform: scale(1.1); /* Subtle grow effect */
 }
