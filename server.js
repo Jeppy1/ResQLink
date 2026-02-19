@@ -23,8 +23,6 @@ app.use(session({
 
 // --- 2. DATABASE ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
-
-// Improved connection logic to prevent API timeouts
 mongoose.connect(uriResQLink, { 
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000 
@@ -53,13 +51,17 @@ const pusher = new Pusher({
     cluster: process.env.PUSHER_CLUSTER,
     useTLS: true
 });
-
 const addressCache = {}; 
 
 // --- 4. ROUTES ---
 function isAuthenticated(req, res, next) {
     if (req.session.user) return next();
     res.status(401).json({ error: "Unauthorized" }); 
+}
+
+function isAdmin(req, res, next) {
+    if (req.session.user && req.session.role === 'admin') return next();
+    res.status(403).json({ error: "Access Denied" });
 }
 
 app.post('/api/login', (req, res) => {
@@ -76,7 +78,6 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
     try {
         const { callsign, lat, lng, details, symbol, ownerName, contactNum, emergencyName, emergencyNum } = req.body;
         const formattedCallsign = callsign.toUpperCase().trim();
-        
         const updateData = {
             callsign: formattedCallsign,
             lat: lat ? lat.toString() : null,
@@ -84,33 +85,35 @@ app.post('/api/register-station', isAuthenticated, async (req, res) => {
             symbol: symbol || "/-",
             details: details || "Registered Responder",
             ownerName, contactNum, emergencyName, emergencyNum,
-            isRegistered: true,
-            lastSeen: new Date()
+            isRegistered: true, lastSeen: new Date()
         };
-
-        const newStation = await TrackerResQLink.findOneAndUpdate(
-            { callsign: formattedCallsign }, 
-            updateData, 
-            { upsert: true, new: true }
-        );
-
+        const newStation = await TrackerResQLink.findOneAndUpdate({ callsign: formattedCallsign }, updateData, { upsert: true, new: true });
         pusher.trigger("aprs-channel", "new-data", newStation);
         res.status(200).json({ message: "Registered!", data: newStation });
-    } catch (err) {
-        console.error("Registration Route Error:", err);
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// FIXED: DELETE ROUTE DEFINITION
+app.delete('/api/delete-station/:callsign', isAdmin, async (req, res) => {
+    try {
+        const callsign = req.params.callsign.toUpperCase().trim();
+        console.log(`🗑️ DELETE REQUEST RECEIVED FOR: ${callsign}`);
+        const deleted = await TrackerResQLink.findOneAndDelete({ callsign: callsign });
+        if (deleted) {
+            pusher.trigger("aprs-channel", "delete-data", { callsign });
+            res.status(200).json({ message: "Deleted" });
+        } else {
+            res.status(404).json({ error: "Not Found" });
+        }
+    } catch (err) { res.status(500).json({ error: "Server Error" }); }
 });
 
 app.get('/api/get-address', async (req, res) => {
     const { lat, lng } = req.query;
     const cacheKey = `${lat},${lng}`;
     if (addressCache[cacheKey]) return res.json({ address: addressCache[cacheKey] });
-
     try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
-            headers: { 'User-Agent': 'ResQLink-Disaster-App-v2' }
-        });
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, { headers: { 'User-Agent': 'ResQLink-Disaster-App-v2' } });
         const data = await response.json();
         const address = data.display_name ? data.display_name.split(',').slice(0, 3).join(',') : `${lat}, ${lng}`;
         addressCache[cacheKey] = address;
@@ -122,7 +125,6 @@ app.get('/', (req, res) => {
     if (req.session && req.session.user) res.sendFile(path.join(__dirname, 'public', 'index.html'));
     else res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/positions', isAuthenticated, async (req, res) => {
@@ -132,7 +134,7 @@ app.get('/api/positions', isAuthenticated, async (req, res) => {
     } catch (err) { res.status(500).json([]); }
 });
 
-// --- 5. APRS LOGIC ---
+// --- APRS LOGIC ---
 const client = new net.Socket();
 function connectAPRS() {
     client.connect(14580, "rotate.aprs2.net", () => {
@@ -141,44 +143,27 @@ function connectAPRS() {
     });
 }
 connectAPRS();
-
 client.on('close', () => { setTimeout(connectAPRS, 5000); });
-
 client.on('data', async (data) => {
     const rawPacket = data.toString();
-    
-    // --- 🛠️ DEBUG FEATURE: LOG ALL INCOMING PACKETS ---
-    if (!rawPacket.startsWith('#')) {
-        console.log("RX:", rawPacket.trim());
-    }
-
+    if (!rawPacket.startsWith('#')) console.log("RX:", rawPacket.trim());
     if (mongoose.connection.readyState !== 1) return;
-
     const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
     const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
-
     if (latMatch && lngMatch) {
         const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
-
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
             console.log(`✅ MATCH: Updating ${callsign} on map.`);
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
-
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
-                { 
-                    lat: cleanLat.toString(), 
-                    lng: cleanLng.toString(),
-                    lastSeen: new Date(),
-                    $push: { path: { $each: [[cleanLat, cleanLng]], $slice: -20 } } 
-                },
+                { lat: cleanLat.toString(), lng: cleanLng.toString(), lastSeen: new Date(), $push: { path: { $each: [[cleanLat, cleanLng]], $slice: -20 } } },
                 { new: true }
             );
-
             pusher.trigger("aprs-channel", "new-data", updated.toObject()); 
         }
     }
