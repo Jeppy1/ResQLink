@@ -71,6 +71,17 @@
         <div class="modal-card"><div class="modal-body" style="text-align: center; padding: 30px;"><i class="fa-solid fa-circle-check" style="font-size: 50px; color: #22c55e;"></i><h3 id="successTitle">Success!</h3><p id="successMessage">Done.</p><button onclick="closeSuccessModal()" class="btn-confirm" style="width: 100%; margin-top: 20px;">OK</button></div></div>
     </div>
 
+    <div id="miniAlertModal" class="modal-overlay" style="display:none;">
+        <div class="modal-card">
+            <div class="modal-body" style="text-align: center; padding: 30px;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 50px; color: #f59e0b; margin-bottom: 15px;"></i>
+                <h3 id="miniAlertTitle" style="color: #f59e0b;">Notice</h3>
+                <p id="miniAlertMessage" style="color: #f1f5f9;">No signal detected yet.</p>
+                <button onclick="closeMiniAlert()" class="btn-confirm" style="width: 100%; margin-top: 20px; background: #f59e0b;">OK</button>
+            </div>
+        </div>
+    </div>
+
     <div class="side-panel">
         <div class="header-row">
             <img src="Logo.png" class="logo" alt="ResQLink">
