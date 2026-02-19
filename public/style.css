@@ -461,3 +461,34 @@ button:hover {
 .btn-uniform-export i {
     font-size: 16px; /* Scales the CSV icon to match button text */
 }
+
+/* Sidebar adjustments for mobile visibility */
+.side-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Takes full height of the viewport */
+    overflow-y: auto; /* Enables scrolling within the sidebar */
+    padding-bottom: 20px; /* Extra space at the bottom for mobile nav bars */
+}
+
+/* Ensure the history container isn't hidden */
+.history-container {
+    margin-top: 20px;
+    width: 100%;
+    /* Prevents the table from shrinking too much */
+    min-height: 200px; 
+}
+
+/* Make table text readable on small mobile screens */
+@media (max-width: 600px) {
+    .activity-table th, .activity-table td {
+        font-size: 10px;
+        padding: 4px;
+    }
+    
+    .side-panel {
+        width: 100%; /* Ensures sidebar takes full width on very small phones */
+        position: relative;
+        z-index: 1000;
+    }
+}
