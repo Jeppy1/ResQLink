@@ -24,9 +24,9 @@
 
                 <div class="input-field" style="margin-bottom: 15px;">
                     <i class="fa-solid fa-layer-group"></i>
-                    <select id="stationType" onchange="toggleRegFields()" style="width: 100%; background: transparent; border: none; color: white; outline: none; cursor: pointer;">
-                        <option value="tracker" style="color: black;">Tracker</option>
-                        <option value="igate" style="color: black;">APRS iGate Station</option>
+                    <select id="stationType" onchange="toggleRegFields()">
+                        <option value="tracker">Tracker</option>
+                        <option value="igate">APRS iGate Station</option>
                     </select>
                 </div>
                 
@@ -73,7 +73,7 @@
                     <span>This action will permanently reset the path history for <strong id="confirmCallsign">---</strong>.</span>
                 </div>
                 <div class="modal-footer">
-                    <button onclick="executeClear()" class="btn-confirm btn-danger">Yes, Clear Path</button>
+                    <button onclick="executeClear()" class="btn-confirm btn-danger" style="background:#ef4444;">Yes, Clear Path</button>
                     <button onclick="closeConfirmModal()" class="btn-cancel">Cancel</button>
                 </div>
             </div>
@@ -112,8 +112,11 @@
     <div class="side-panel">
         <div class="header-row">
             <img src="Logo.png" class="logo" alt="ResQLink Logo">
-            <button onclick="handleLogout()" class="btn-logout" title="Logout">
-                <i class="fa-solid fa-right-from-bracket"></i> Logout
+            <button onclick="downloadAllPaths()" class="btn-download" title="Download Coordinate History">
+                <i class="fa-solid fa-file-csv"></i>
+            </button>
+            <button onclick="handleLogout()" class="btn-logout" title="Logout" style="background:transparent; color:#ef4444; border:none; cursor:pointer;">
+                <i class="fa-solid fa-right-from-bracket"></i>
             </button>
         </div>
 
@@ -141,22 +144,21 @@
         </div>
 
         <div class="registered-container">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h4><i class="fa-solid fa-address-book"></i> Registered Callsigns</h4>
-                <button onclick="downloadAllPaths()" class="btn-download" title="Download Coordinate History">
-                    <i class="fa-solid fa-file-csv"></i>
-                </button>
+            <div style="margin-bottom: 10px;">
+                <h4 style="display:inline-block; margin:0;">
+                    <i class="fa-solid fa-address-book"></i> Registered <span id="registered-header-count"></span>
+                </h4>
             </div>
             <div id="registered-list" class="station-list"></div>
         </div>
 
-        <div class="legend-container">
+        <div class="legend-container" style="margin-top:20px;">
             <h4><i class="fa-solid fa-layer-group"></i> Icon Legend</h4>
-            <div class="legend-grid">
-                <span><i class="fa-solid fa-tower-broadcast legend-icon"></i> iGate</span>
-                <span><i class="fa-solid fa-person-walking legend-icon"></i> Human</span>
-                <span><i class="fa-solid fa-truck-medical legend-icon"></i> Medic</span>
-                <span><i class="fa-solid fa-house legend-icon"></i> Home</span>
+            <div class="legend-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-size:11px;">
+                <span><i class="fa-solid fa-tower-broadcast"></i> iGate</span>
+                <span><i class="fa-solid fa-person-walking"></i> Human</span>
+                <span><i class="fa-solid fa-truck-medical"></i> Medic</span>
+                <span><i class="fa-solid fa-house"></i> Home</span>
             </div>
         </div>
 
