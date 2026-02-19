@@ -66,12 +66,21 @@ function isAdmin(req, res, next) {
 
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    // Enhanced login logic to handle staff/admin roles
-    if (password === 'resqlink2026' && (username === 'admin' || username === 'staff')) {
+    
+    // NEW: Separate password for Staff
+    if (username === 'staff' && password === 'staff2026') {
         req.session.user = username;
-        req.session.role = (username === 'admin') ? 'admin' : 'viewer';
-        return req.session.save(() => res.json({ success: true, role: req.session.role }));
+        req.session.role = 'viewer';
+        return req.session.save(() => res.json({ success: true, role: 'viewer' }));
     } 
+
+    // Admin retains original password
+    if (username === 'admin' && password === 'resqlink2026') {
+        req.session.user = username;
+        req.session.role = 'admin';
+        return req.session.save(() => res.json({ success: true, role: 'admin' }));
+    } 
+    
     res.status(401).json({ error: "Invalid Credentials" });
 });
 
