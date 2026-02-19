@@ -133,7 +133,6 @@ function updateRegisteredList(data) {
     
     if (!list || !data.isRegistered) return;
 
-    // Update real-time headcount count
     if (data.totalRegistered && headerCount) {
         headerCount.innerText = `(${data.totalRegistered})`;
     }
@@ -272,9 +271,9 @@ window.onload = async () => {
         if (badge && dlBtn) {
             badge.parentNode.insertBefore(dlBtn, badge.nextSibling);
             dlBtn.style.marginLeft = "10px";
-            dlBtn.style.marginTop = "0";
-            dlBtn.style.display = "flex"; // Ensure it shows
+            dlBtn.style.display = "flex";
         }
+        
         const res = await fetch(`/api/positions?t=${Date.now()}`);
         if (res.status === 401) { window.location.href = '/login.html'; return; }
         const history = await res.json();
