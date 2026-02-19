@@ -352,7 +352,7 @@ async function updateMapAndUI(data) {
     }
 
     // Toggle Sidebar Function
-ffunction toggleSidebar() {
+function toggleSidebar() {
     const panel = document.querySelector('.side-panel');
     const btn = document.getElementById('mobile-sidebar-toggle');
     
