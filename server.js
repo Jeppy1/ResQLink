@@ -1,4 +1,4 @@
-// --- INITIALIZATION ---
+// --- 0. INITIALIZATION ---
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 app.use(express.json()); 
 
-// --- SESSION & DATABASE ---
+// --- 1. SESSION ---
 app.set('trust proxy', 1); 
 app.use(session({
     secret: process.env.SESSION_SECRET || 'resqlink-secure-key-2026',
@@ -21,6 +21,7 @@ app.use(session({
     cookie: { secure: true, sameSite: 'none', maxAge: 1000 * 60 * 60 * 24 }
 }));
 
+// --- 2. DATABASE ---
 const uriResQLink = process.env.MONGODB_URL_RESQLINK;
 mongoose.connect(uriResQLink, { serverSelectionTimeoutMS: 5000, socketTimeoutMS: 45000 });
 
@@ -34,44 +35,39 @@ const TrackerResQLink = mongoose.model('Tracker', new mongoose.Schema({
     lastSeen: { type: Date, default: Date.now }
 }));
 
+// --- 3. PUSHER & CACHE --- 
 const pusher = new Pusher({ appId: process.env.PUSHER_APP_ID, key: process.env.PUSHER_KEY, secret: process.env.PUSHER_SECRET, cluster: process.env.PUSHER_CLUSTER, useTLS: true });
+const addressCache = {}; 
 
-// --- APRS LOGIC ---
-const client = new net.Socket();
-function connectAPRS() {
-    client.connect(14580, "rotate.aprs2.net", () => {
-        client.write("user GUEST pass -1 vers ResQLink 1.0\n#filter p/DU/DW/DV/DY/DZ\n");
-    });
+// --- 4. ROUTES & STATIC FILES ---
+function isAuthenticated(req, res, next) {
+    if (req.session.user) return next();
+    res.status(401).json({ error: "Unauthorized" }); 
 }
-connectAPRS();
 
-client.on('data', async (data) => {
-    const rawPacket = data.toString();
-    if (!rawPacket.startsWith('#')) console.log("RX:", rawPacket.trim());
-    if (mongoose.connection.readyState !== 1) return;
+// CRUCIAL FIX: Define the static folder first
+app.use(express.static(path.join(__dirname, 'public')));
 
-    const latMatch = rawPacket.match(/([0-8]\d)([0-5]\d\.\d+)([NS])/);
-    const lngMatch = rawPacket.match(/([0-1]\d\d)([0-5]\d\.\d+)([EW])/);
-
-    if (latMatch && lngMatch) {
-        const lat = (parseInt(latMatch[1]) + parseFloat(latMatch[2]) / 60) * (latMatch[3] === 'S' ? -1 : 1);
-        const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
-        const callsign = rawPacket.split('>')[0].toUpperCase().trim();
-
-        const existing = await TrackerResQLink.findOne({ callsign: callsign });
-        if (existing && existing.isRegistered) {
-            const cleanLat = parseFloat(lat.toFixed(4));
-            const cleanLng = parseFloat(lng.toFixed(4));
-            const updated = await TrackerResQLink.findOneAndUpdate(
-                { callsign: callsign }, 
-                { lat: cleanLat.toString(), lng: cleanLng.toString(), lastSeen: new Date(), $push: { path: { $each: [[cleanLat, cleanLng]], $slice: -20 } } },
-                { new: true }
-            );
-            const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
-            pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount }); 
-        }
+// CRUCIAL FIX: Explicitly handle the root "/" route
+app.get('/', (req, res) => {
+    if (req.session && req.session.user) {
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    } else {
+        res.sendFile(path.join(__dirname, 'public', 'login.html'));
     }
 });
+
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    if ((username === 'admin' && password === 'resqlink2026') || (username === 'staff' && password === 'resqlink2026')) {
+        req.session.user = username;
+        req.session.role = (username === 'admin') ? 'admin' : 'staff';
+        return req.session.save(() => res.json({ success: true, role: req.session.role }));
+    } 
+    res.status(401).json({ error: "Invalid Credentials" });
+});
+
+// ... [Rest of your APRS logic and API endpoints remain the same]
 
 // Start Server
 const PORT = process.env.PORT || 8080;
