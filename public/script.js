@@ -272,7 +272,26 @@ async function updateMapAndUI(data) {
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
-    // 1. Backtracking Logic: History Dots & Polyline
+    // --- 1. WEATHER OVERLAY LOGIC (NEW) ---
+    // Extract the latest point from the path to get current weather
+    if (path && path.length > 0) {
+        const latestPoint = path[path.length - 1];
+        const weatherDesc = document.getElementById('map-weather-desc');
+        const weatherDetails = document.getElementById('map-weather-details');
+        const weatherIcon = document.getElementById('weather-icon-container');
+
+        if (weatherDesc && latestPoint.weather) {
+            weatherDesc.innerText = latestPoint.weather;
+            weatherDetails.innerText = `${latestPoint.temp || '--'} | Wind: ${latestPoint.wind || '--'}`;
+            
+            // Update icon if icon code exists (e.g., "01d")
+            if (latestPoint.icon && weatherIcon) {
+                weatherIcon.innerHTML = `<img src="https://openweathermap.org/img/wn/${latestPoint.icon}.png" style="width:40px; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5));">`;
+            }
+        }
+    }
+
+    // --- 2. BACKTRACKING LOGIC ---
     trackCoords[callsign] = path || [];
     if (historyDots[callsign]) historyDots[callsign].forEach(dot => map.removeLayer(dot));
     historyDots[callsign] = [];
@@ -301,18 +320,21 @@ async function updateMapAndUI(data) {
         trackPaths[callsign] = L.polyline(polylinePoints, { color: '#007bff', weight: 3, opacity: 0.6 }).addTo(map);
     }
 
-    // 2. Table Update (Full Date/Time)
+    // --- 3. TABLE UPDATE ---
     const dateObj = parseMongoDate(lastSeen);
     const fullTimeStr = dateObj ? `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : "Receiving...";
     updateRecentActivity(callsign, lat, lng, fullTimeStr);
 
-    // 3. Live Marker & Popup logic
+    // --- 4. LIVE MARKER & POPUP ---
     const currentAddr = await getAddress(pos[0], pos[1]);
     const customIcon = getSymbolIcon(symbol);
     const deleteBtn = userRole === 'admin' ? `<button onclick="deleteStation('${callsign}')" style="flex:1; background:#ef4444; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:11px; font-weight:bold;"><i class="fa-solid fa-trash"></i> Delete</button>` : '';
     const isIGate = symbol === '/r';
     const emergencySection = !isIGate ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
     
+    // Added weather info into the marker popup for consistency
+    const latestWeather = (path && path.length > 0) ? path[path.length-1] : {};
+
     const popupContent = `
         <div style="font-family: sans-serif; min-width: 230px; line-height: 1.4;">
             <h4 style="margin:0 0 8px 0; color:#38bdf8; border-bottom: 1px solid #334155; padding-bottom:5px;">${callsign}</h4>
@@ -320,6 +342,9 @@ async function updateMapAndUI(data) {
                 <b>${isIGate ? 'Custodian' : 'Owner'}:</b> ${ownerName || 'N/A'}<br>
                 <b>Contact:</b> ${contactNum || 'N/A'}<br>
                 ${emergencySection}
+            </div>
+            <div style="font-size: 12px; color: #38bdf8; margin-bottom: 5px;">
+                ☁️ ${latestWeather.weather || 'N/A'} (${latestWeather.temp || '--'})
             </div>
             <div style="font-size: 12px; color: #ef4444; margin-bottom: 8px; font-weight: bold;">📍 ${currentAddr}</div>
             <div style="font-size: 11px; color: #6f7278; background: #e2e8f0; padding: 5px; border-radius: 4px; margin-bottom: 10px;">
