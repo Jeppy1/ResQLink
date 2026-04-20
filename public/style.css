@@ -646,3 +646,48 @@ button:hover {
     background: #334155;
     border-radius: 10px;
 }
+
+/* Weather Overlay Card */
+.weather-card {
+    position: fixed;
+    top: 70px; /* Below the zoom controls */
+    left: 10px;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 10px 15px;
+    border-radius: 12px;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    pointer-events: none; /* Allows you to click the map through the card */
+    transition: opacity 0.3s ease;
+}
+
+.weather-info {
+    text-align: left;
+    line-height: 1.2;
+}
+
+#map-weather-desc {
+    font-weight: 800;
+    color: #38bdf8;
+    text-transform: capitalize;
+    font-size: 13px;
+}
+
+#map-weather-details {
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+/* Hide on very small screens if it blocks the view */
+@media (max-width: 480px) {
+    .weather-card {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
+}
