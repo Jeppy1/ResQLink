@@ -43,7 +43,8 @@ const trackerSchema = new mongoose.Schema({
         timestamp: { type: Date, default: Date.now },
         weather: String, // NEW: e.g., "Clear Sky"
         wind: String,    // NEW: e.g., "5.1 m/s"
-        temp: String     // NEW: e.g., "28°C"
+        temp: String,     // NEW: e.g., "28°C"
+        icon: String
     }],
     ownerName: String, contactNum: String,
     emergencyName: String, emergencyNum: String,
@@ -248,7 +249,8 @@ client.on('data', async (data) => {
             weatherData = {
                 desc: weatherRes.data.weather[0].description,
                 wind: `${weatherRes.data.wind.speed} m/s`,
-                temp: `${Math.round(weatherRes.data.main.temp)}°C`
+                temp: `${Math.round(weatherRes.data.main.temp)}°C`,
+                icon: weatherRes.data.weather[0].icon // ADD THIS LINE
             };
         } catch (e) { 
             console.error(`Weather API error for ${callsign}:`, e.message); 
