@@ -603,3 +603,46 @@ button:hover {
         transform: translateY(0); 
     }
 }
+
+/* Ensure the stacked data in the table is readable */
+.activity-table td {
+    padding: 12px 4px; /* Increased vertical padding */
+    line-height: 1.5;   /* Better spacing for multi-line weather info */
+    vertical-align: middle;
+}
+
+/* Add a subtle highlight when a new data point arrives */
+.row-update {
+    animation: flashUpdate 2s ease-out;
+}
+
+@keyframes flashUpdate {
+    0% { background: rgba(34, 197, 94, 0.2); } /* Subtle Green flash */
+    100% { background: transparent; }
+}
+
+/* Dark Mode Leaflet Popups */
+.leaflet-popup-content-wrapper {
+    background: #1e293b !important;
+    color: #ffffff !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 5px;
+}
+
+.leaflet-popup-tip {
+    background: #1e293b !important;
+}
+
+.leaflet-popup-close-button {
+    color: #94a3b8 !important;
+    padding: 8px !important;
+}
+
+.side-panel::-webkit-scrollbar {
+    width: 4px;
+}
+.side-panel::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 10px;
+}
