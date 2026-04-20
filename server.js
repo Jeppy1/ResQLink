@@ -40,7 +40,10 @@ const trackerSchema = new mongoose.Schema({
     path: [{
         lat: Number,
         lng: Number,
-        timestamp: { type: Date, default: Date.now }
+        timestamp: { type: Date, default: Date.now },
+        weather: String, // NEW: e.g., "Clear Sky"
+        wind: String,    // NEW: e.g., "5.1 m/s"
+        temp: String     // NEW: e.g., "28°C"
     }],
     ownerName: String, contactNum: String,
     emergencyName: String, emergencyNum: String,
@@ -217,6 +220,8 @@ function connectAPRS() {
 }
 connectAPRS();
 client.on('close', () => { setTimeout(connectAPRS, 5000); });
+const axios = require('axios');
+
 client.on('data', async (data) => {
     const rawPacket = data.toString();
     if (!rawPacket.startsWith('#')) console.log("RX:", rawPacket.trim());
@@ -230,12 +235,28 @@ client.on('data', async (data) => {
         const lng = (parseInt(lngMatch[1]) + parseFloat(lngMatch[2]) / 60) * (lngMatch[3] === 'W' ? -1 : 1);
         const callsign = rawPacket.split('>')[0].toUpperCase().trim();
         
+        // Define this ONCE at the top
+        const uplinkTime = new Date(); 
+        let weatherData = { desc: "N/A", wind: "N/A", temp: "N/A" };
+
+        try {
+            // Best Practice: Add a timeout to the API call so your server doesn't hang
+            const weatherRes = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=YOUR_API_KEY&units=metric`, { timeout: 3000 });
+            
+            weatherData = {
+                desc: weatherRes.data.weather[0].description,
+                wind: `${weatherRes.data.wind.speed} m/s`,
+                temp: `${Math.round(weatherRes.data.main.temp)}°C`
+            };
+        } catch (e) { 
+            console.error(`Weather API error for ${callsign}:`, e.message); 
+        }
+        
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
         if (existing && existing.isRegistered) {
-            console.log(`✅ MATCH: Updating ${callsign} on map.`);
+            console.log(`✅ MATCH: Updating ${callsign} with environmental data.`);
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
-            const uplinkTime = new Date(); // Capture the exact time of this specific uplink
 
             const updated = await TrackerResQLink.findOneAndUpdate(
                 { callsign: callsign }, 
@@ -243,15 +264,17 @@ client.on('data', async (data) => {
                     lat: cleanLat.toString(), 
                     lng: cleanLng.toString(), 
                     lastSeen: uplinkTime,
-                    // UPDATED: Stores coordinates and a dedicated timestamp for this specific point
                     $push: { 
                         path: { 
                             $each: [{ 
                                 lat: cleanLat, 
                                 lng: cleanLng, 
-                                timestamp: uplinkTime 
+                                timestamp: uplinkTime,
+                                weather: weatherData.desc,
+                                wind: weatherData.wind,
+                                temp: weatherData.temp
                             }], 
-                            $slice: -20 
+                            $slice: -50 
                         } 
                     } 
                 },
@@ -259,6 +282,7 @@ client.on('data', async (data) => {
             );
             
             const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+            // Always use .toObject() when sending Mongoose docs via Pusher
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount }); 
         }
     }
