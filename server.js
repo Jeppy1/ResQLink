@@ -240,8 +240,10 @@ client.on('data', async (data) => {
         let weatherData = { desc: "N/A", wind: "N/A", temp: "N/A" };
 
         try {
-            // Best Practice: Add a timeout to the API call so your server doesn't hang
-            const weatherRes = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=YOUR_API_KEY&units=metric`, { timeout: 3000 });
+            const apiKey = '07fad6d47f1b08704087b169d65b9d4a'; 
+            const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${apiKey}&units=metric`;
+            
+            const weatherRes = await axios.get(weatherUrl, { timeout: 3000 });
             
             weatherData = {
                 desc: weatherRes.data.weather[0].description,
