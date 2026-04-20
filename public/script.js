@@ -440,5 +440,10 @@ window.onload = async () => {
             history.sort((a, b) => (parseMongoDate(a.lastSeen) || 0) - (parseMongoDate(b.lastSeen) || 0));
             history.forEach(d => updateMapAndUI(d));
         }
+        // Inside window.onload, after history.forEach(d => updateMapAndUI(d));
+        if (history.length > 0) {
+            // Show the weather for the most recently active station on load
+            updateMapAndUI(history[history.length - 1]);
+        }
     } catch (err) { console.error("Init failed:", err); }
 };
