@@ -198,14 +198,33 @@ function focusStation(callsign) {
     } else showMiniAlert("No Signal", `${callsign} has not sent a signal yet.`);
 }
 
-function updateRecentActivity(callsign, lat, lng, timeStr) {
+function updateRecentActivity(callsign, lat, lng, fullTimeStr, weather = "N/A") {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
+    
     let existingRow = Array.from(tbody.rows).find(row => row.cells[0].innerText === callsign);
     if (existingRow) existingRow.remove();
 
     let targetRow = tbody.insertRow(0);
-    targetRow.innerHTML = `<td>${callsign}</td><td><span style="color:#94a3b8;font-size:11px;">${lat}</span></td><td><span style="color:#94a3b8;font-size:11px;">${lng}</span></td><td style="font-size:10px;">${timeStr}</td>`;
+    
+    // Formatting the coordinates and environmental data
+    const coordsHTML = `
+        <span style="color:#38bdf8; font-size:11px;">${parseFloat(lat).toFixed(4)}</span><br>
+        <span style="color:#38bdf8; font-size:11px;">${parseFloat(lng).toFixed(4)}</span>
+    `;
+
+    const statusHTML = `
+        <div style="font-size: 10px; line-height: 1.2;">
+            <span style="color: #f1f5f9;">${fullTimeStr}</span><br>
+            <span style="color: #22c55e; font-weight: bold;">${weather}</span>
+        </div>
+    `;
+
+    targetRow.innerHTML = `
+        <td style="vertical-align: middle; font-weight: bold;">${callsign}</td>
+        <td>${coordsHTML}</td>
+        <td>${statusHTML}</td>
+    `;
     
     const maxRows = (window.innerWidth < 600) ? 5 : 10;
     while (tbody.rows.length > maxRows) tbody.deleteRow(maxRows);
