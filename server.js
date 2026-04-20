@@ -191,6 +191,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/api/positions', isAuthenticated, async (req, res) => {
     try {
         const positions = await TrackerResQLink.find({ isRegistered: true });
+        
+        // ADD THIS LINE: Explicitly tell the browser we are online when they fetch data
+        pusher.trigger("aprs-channel", "connection-status", { status: "Online" });
+        
         res.json(positions); 
     } catch (err) { res.status(500).json([]); }
 });
