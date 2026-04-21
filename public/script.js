@@ -368,6 +368,24 @@ async function updateMapAndUI(data) {
     markers[callsign].isRegistered = isRegistered;
 }
 
+async function loadDefaultWeather() {
+    const lat = 13.58; // Virac Latitude
+    const lng = 124.23; // Virac Longitude
+    const apiKey = '07fad6d47f1b08704087b169d65b9d4a';
+    
+    try {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${apiKey}&units=metric`);
+        const data = await res.json();
+        
+        document.getElementById('map-weather-desc').innerText = `Catanduanes: ${data.weather[0].description}`;
+        document.getElementById('map-weather-details').innerText = `${Math.round(data.main.temp)}°C | Wind: ${data.wind.speed} m/s`;
+        document.getElementById('weather-icon-container').innerHTML = 
+            `<img src="https://openweathermap.org/img/wn/${data.weather[0].icon}.png" style="width:40px;">`;
+    } catch (err) {
+        console.error("Default weather failed", err);
+    }
+}
+
 // --- OTHER UTILS ---
 async function getAddress(lat, lng) {
     try {
