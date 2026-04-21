@@ -277,12 +277,12 @@ async function updateMapAndUI(data) {
     // Extract the latest point from the path to get current weather
     if (path && path.length > 0) {
         const latestPoint = path[path.length - 1];
-        console.log("🔍 [Weather Debug] Checking latestPoint:", latestPoint);
-        console.log("🔍 [Weather Debug] weatherDesc exists?", !!weatherDesc);
-        console.log("🔍 [Weather Debug] latestPoint.weather value:", latestPoint.weather);
         const weatherDesc = document.getElementById('map-weather-desc');
         const weatherDetails = document.getElementById('map-weather-details');
         const weatherIcon = document.getElementById('weather-icon-container');
+        console.log("🔍 [Weather Debug] Checking latestPoint:", latestPoint);
+        console.log("🔍 [Weather Debug] weatherDesc exists?", !!weatherDesc);
+        console.log("🔍 [Weather Debug] latestPoint.weather value:", latestPoint.weather);
 
         if (weatherDesc && latestPoint.weather) {
             weatherDesc.innerText = latestPoint.weather;
