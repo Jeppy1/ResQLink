@@ -249,15 +249,17 @@ client.on('data', async (data) => {
             const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${apiKey}&units=metric`;
             
             const weatherRes = await axios.get(weatherUrl, { timeout: 3000 });
+
+            console.log(`🌦️ Weather for ${callsign}: ${weatherRes.data.weather[0].description}, Temp: ${weatherRes.data.main.temp}`);
             
             weatherData = {
                 desc: weatherRes.data.weather[0].description,
                 wind: `${weatherRes.data.wind.speed} m/s`,
                 temp: `${Math.round(weatherRes.data.main.temp)}°C`,
-                icon: weatherRes.data.weather[0].icon // ADD THIS LINE
+                icon: weatherRes.data.weather[0].icon
             };
         } catch (e) { 
-            console.error(`Weather API error for ${callsign}:`, e.message); 
+            console.error(`❌ Weather API Failed for ${callsign}:`, e.message);
         }
         
         const existing = await TrackerResQLink.findOne({ callsign: callsign });
@@ -291,6 +293,7 @@ client.on('data', async (data) => {
                 );
             
             const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
+            console.log(`📡 Sending Pusher update for ${callsign}. Path length: ${updated.path.length}`);
             // Always use .toObject() when sending Mongoose docs via Pusher
             pusher.trigger("aprs-channel", "new-data", { ...updated.toObject(), totalRegistered: totalCount }); 
         }
