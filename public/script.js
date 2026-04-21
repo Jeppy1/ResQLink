@@ -6,6 +6,14 @@ const channel = pusher.subscribe('aprs-channel');
 var map = L.map('map').setView([13.5857, 124.2160], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
+map.on('click', (e) => {
+    // Only reset if the user clicks the background map, not a marker/popup
+    if (e.originalEvent.target.id === 'map') {
+        console.log("📍 Map background clicked: Resetting to Catanduanes weather");
+        loadDefaultWeather(); 
+    }
+});
+
 var markers = {};
 var trackPaths = {}; 
 var trackCoords = {}; 
@@ -365,6 +373,24 @@ async function updateMapAndUI(data) {
     } else {
         markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
     }
+    markers[callsign].on('click', () => {
+        if (path && path.length > 0) {
+            const latest = path[path.length - 1];
+            const weatherDesc = document.getElementById('map-weather-desc');
+            const weatherDetails = document.getElementById('map-weather-details');
+            const weatherIcon = document.getElementById('weather-icon-container');
+
+            if (weatherDesc) {
+                // Update the overlay to show THIS specific tracker's weather
+                weatherDesc.innerText = `${callsign}: ${latest.weather || 'Unknown'}`;
+                weatherDetails.innerText = `${latest.temp || '--'} | Wind: ${latest.wind || '--'}`;
+                
+                if (latest.icon && weatherIcon) {
+                    weatherIcon.innerHTML = `<img src="https://openweathermap.org/img/wn/${latest.icon}.png" style="width:40px;">`;
+                }
+            }
+        }
+    });
     markers[callsign].isRegistered = isRegistered;
 }
 
@@ -448,6 +474,7 @@ channel.bind('delete-data', (data) => {
 channel.bind('new-data', updateMapAndUI);
 
 window.onload = async () => {
+    loadDefaultWeather();
     try {
         userRole = localStorage.getItem('userRole') || 'viewer'; 
         if (document.getElementById('role-text')) {
