@@ -263,6 +263,7 @@ function executeClear() {
 
 // --- CORE MAP PROCESSING ---
 async function updateMapAndUI(data) {
+    console.log("📥 Received Data from Pusher:", data); // DEBUG 3
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     
     updateRegisteredList(data);
@@ -276,6 +277,9 @@ async function updateMapAndUI(data) {
     // Extract the latest point from the path to get current weather
     if (path && path.length > 0) {
         const latestPoint = path[path.length - 1];
+        console.log("🔍 [Weather Debug] Checking latestPoint:", latestPoint);
+        console.log("🔍 [Weather Debug] weatherDesc exists?", !!weatherDesc);
+        console.log("🔍 [Weather Debug] latestPoint.weather value:", latestPoint.weather);
         const weatherDesc = document.getElementById('map-weather-desc');
         const weatherDetails = document.getElementById('map-weather-details');
         const weatherIcon = document.getElementById('weather-icon-container');
