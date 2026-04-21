@@ -266,28 +266,29 @@ client.on('data', async (data) => {
             const cleanLat = parseFloat(lat.toFixed(4));
             const cleanLng = parseFloat(lng.toFixed(4));
 
-            const updated = await TrackerResQLink.findOneAndUpdate(
-                { callsign: callsign }, 
-                { 
-                    lat: cleanLat.toString(), 
-                    lng: cleanLng.toString(), 
-                    lastSeen: uplinkTime,
-                    $push: { 
-                        path: { 
-                            $each: [{ 
-                                lat: cleanLat, 
-                                lng: cleanLng, 
-                                timestamp: uplinkTime,
-                                weather: weatherData.desc,
-                                wind: weatherData.wind,
-                                temp: weatherData.temp
-                            }], 
-                            $slice: -50 
+               const updated = await TrackerResQLink.findOneAndUpdate(
+                    { callsign: callsign }, 
+                    { 
+                        lat: cleanLat.toString(), 
+                        lng: cleanLng.toString(), 
+                        lastSeen: uplinkTime,
+                        $push: { 
+                            path: { 
+                                $each: [{ 
+                                    lat: cleanLat, 
+                                    lng: cleanLng, 
+                                    timestamp: uplinkTime,
+                                    weather: weatherData.desc,
+                                    wind: weatherData.wind,
+                                    temp: weatherData.temp,
+                                    icon: weatherData.icon // <--- YOU WERE MISSING THIS LINE!
+                                }], 
+                                $slice: -50 
+                            } 
                         } 
-                    } 
-                },
-                { new: true }
-            );
+                    },
+                    { new: true }
+                );
             
             const totalCount = await TrackerResQLink.countDocuments({ isRegistered: true });
             // Always use .toObject() when sending Mongoose docs via Pusher
