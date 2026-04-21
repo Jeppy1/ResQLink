@@ -474,25 +474,46 @@ channel.bind('delete-data', (data) => {
 channel.bind('new-data', updateMapAndUI);
 
 window.onload = async () => {
-    loadDefaultWeather();
+    // 1. Load Initial Weather immediately
+    await loadDefaultWeather();
+
     try {
         userRole = localStorage.getItem('userRole') || 'viewer'; 
         if (document.getElementById('role-text')) {
             document.getElementById('role-text').innerText = userRole === 'admin' ? "System Admin" : "Field Staff";
             document.getElementById('role-badge').classList.add(userRole === 'admin' ? 'role-admin' : 'role-viewer');
         }
+
         const res = await fetch(`/api/positions?t=${Date.now()}`);
         if (res.status === 401) { window.location.href = '/login.html'; return; }
+        
         const history = await res.json();
         if (Array.isArray(history)) {
-            if (document.getElementById('registered-header-count')) document.getElementById('registered-header-count').innerText = `(${history.length})`;
+            if (document.getElementById('registered-header-count')) {
+                document.getElementById('registered-header-count').innerText = `(${history.length})`;
+            }
             history.sort((a, b) => (parseMongoDate(a.lastSeen) || 0) - (parseMongoDate(b.lastSeen) || 0));
             history.forEach(d => updateMapAndUI(d));
-        }
-        // Inside window.onload, after history.forEach(d => updateMapAndUI(d));
-        if (history.length > 0) {
+            
             // Show the weather for the most recently active station on load
-            updateMapAndUI(history[history.length - 1]);
+            if (history.length > 0) {
+                updateMapAndUI(history[history.length - 1]);
+            }
         }
-    } catch (err) { console.error("Init failed:", err); }
+
+        // --- 2. AUTO-REFRESH LOGIC (Every 60 Seconds) ---
+        setInterval(async () => {
+            const currentTrackingInput = document.getElementById('callSign').value.trim();
+            
+            // Only auto-refresh general Catanduanes weather if NOT 
+            // currently tracking/viewing a specific callsign
+            if (!currentTrackingInput) {
+                console.log("🔄 Auto-refreshing general Catanduanes weather...");
+                await loadDefaultWeather();
+            }
+        }, 60000); // 60,000ms = 1 minute
+
+    } catch (err) { 
+        console.error("Init failed:", err); 
+    }
 };
