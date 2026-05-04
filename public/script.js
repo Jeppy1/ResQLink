@@ -206,7 +206,7 @@ function focusStation(callsign) {
     } else showMiniAlert("No Signal", `${callsign} has not sent a signal yet.`);
 }
 
-function updateRecentActivity(callsign, lat, lng, fullTimeStr, weather = "N/A") {
+function updateRecentActivity(callsign, lat, lng, fullTimeStr, weather = "N/A", temp = "--", wind = "--") {
     const tbody = document.getElementById('history-body');
     if (!tbody) return;
     
@@ -215,16 +215,18 @@ function updateRecentActivity(callsign, lat, lng, fullTimeStr, weather = "N/A") 
 
     let targetRow = tbody.insertRow(0);
     
-    // Formatting the coordinates and environmental data
+    // Formatting the coordinates
     const coordsHTML = `
         <span style="color:#38bdf8; font-size:11px;">${parseFloat(lat).toFixed(4)}</span><br>
         <span style="color:#38bdf8; font-size:11px;">${parseFloat(lng).toFixed(4)}</span>
     `;
 
+    // Updated environmental data to include Temp and Wind icons
     const statusHTML = `
         <div style="font-size: 10px; line-height: 1.2;">
             <span style="color: #f1f5f9;">${fullTimeStr}</span><br>
-            <span style="color: #22c55e; font-weight: bold;">${weather}</span>
+            <span style="color: #22c55e; font-weight: bold;">${weather}</span><br>
+            <span style="color: #38bdf8;">🌡️ ${temp} | 💨 ${wind}</span>
         </div>
     `;
 
@@ -328,14 +330,18 @@ async function updateMapAndUI(data) {
     }
 
     // --- 3. TABLE UPDATE (MODIFIED) ---
-    // Extract the weather string from the path history
-    const weatherString = (path && path.length > 0) ? path[path.length - 1].weather : "N/A";
+    // Extract the latest telemetry point for weather, temp, and wind
+    const latestPoint = (path && path.length > 0) ? path[path.length - 1] : {};
+    
+    const weatherString = latestPoint.weather || "N/A";
+    const tempString = latestPoint.temp || "--";
+    const windString = latestPoint.wind || "--";
     
     const dateObj = parseMongoDate(lastSeen);
     const fullTimeStr = dateObj ? `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : "Receiving...";
     
-    // PASS THE WEATHER STRING TO THE TABLE FUNCTION
-    updateRecentActivity(callsign, lat, lng, fullTimeStr, weatherString);
+    // PASS ALL WEATHER DATA TO THE TABLE FUNCTION
+    updateRecentActivity(callsign, lat, lng, fullTimeStr, weatherString, tempString, windString);
 
     // --- 4. LIVE MARKER & POPUP ---
     const currentAddr = await getAddress(pos[0], pos[1]);
