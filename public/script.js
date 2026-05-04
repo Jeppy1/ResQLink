@@ -271,7 +271,7 @@ function executeClear() {
 
 // --- CORE MAP PROCESSING ---
 async function updateMapAndUI(data) {
-    console.log("📥 Received Data from Pusher:", data); // DEBUG 3
+    console.log("📥 Received Data from Pusher:", data); 
     const { callsign, lat, lng, symbol, ownerName, contactNum, emergencyName, emergencyNum, path, lastSeen, isRegistered } = data;
     
     updateRegisteredList(data);
@@ -281,22 +281,17 @@ async function updateMapAndUI(data) {
     const pos = [parseFloat(lat), parseFloat(lng)];
     if (isNaN(pos[0])) return;
 
-    // --- 1. WEATHER OVERLAY LOGIC (NEW) ---
-    // Extract the latest point from the path to get current weather
+    // --- 1. WEATHER OVERLAY LOGIC ---
     if (path && path.length > 0) {
         const latestPoint = path[path.length - 1];
         const weatherDesc = document.getElementById('map-weather-desc');
         const weatherDetails = document.getElementById('map-weather-details');
         const weatherIcon = document.getElementById('weather-icon-container');
-        console.log("🔍 [Weather Debug] Checking latestPoint:", latestPoint);
-        console.log("🔍 [Weather Debug] weatherDesc exists?", !!weatherDesc);
-        console.log("🔍 [Weather Debug] latestPoint.weather value:", latestPoint.weather);
 
         if (weatherDesc && latestPoint.weather) {
             weatherDesc.innerText = latestPoint.weather;
             weatherDetails.innerText = `${latestPoint.temp || '--'} | Wind: ${latestPoint.wind || '--'}`;
             
-            // Update icon if icon code exists (e.g., "01d")
             if (latestPoint.icon && weatherIcon) {
                 weatherIcon.innerHTML = `<img src="https://openweathermap.org/img/wn/${latestPoint.icon}.png" style="width:40px; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.5));">`;
             }
@@ -332,10 +327,15 @@ async function updateMapAndUI(data) {
         trackPaths[callsign] = L.polyline(polylinePoints, { color: '#007bff', weight: 3, opacity: 0.6 }).addTo(map);
     }
 
-    // --- 3. TABLE UPDATE ---
+    // --- 3. TABLE UPDATE (MODIFIED) ---
+    // Extract the weather string from the path history
+    const weatherString = (path && path.length > 0) ? path[path.length - 1].weather : "N/A";
+    
     const dateObj = parseMongoDate(lastSeen);
     const fullTimeStr = dateObj ? `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` : "Receiving...";
-    updateRecentActivity(callsign, lat, lng, fullTimeStr);
+    
+    // PASS THE WEATHER STRING TO THE TABLE FUNCTION
+    updateRecentActivity(callsign, lat, lng, fullTimeStr, weatherString);
 
     // --- 4. LIVE MARKER & POPUP ---
     const currentAddr = await getAddress(pos[0], pos[1]);
@@ -344,7 +344,6 @@ async function updateMapAndUI(data) {
     const isIGate = symbol === '/r';
     const emergencySection = !isIGate ? `<b>Emergency:</b> ${emergencyName || 'N/A'}<br><b>Emergency #:</b> ${emergencyNum || 'N/A'}` : '';
     
-    // Added weather info into the marker popup for consistency
     const latestWeather = (path && path.length > 0) ? path[path.length-1] : {};
 
     const popupContent = `
@@ -373,6 +372,7 @@ async function updateMapAndUI(data) {
     } else {
         markers[callsign] = L.marker(pos, { icon: customIcon }).addTo(map).bindPopup(popupContent);
     }
+    
     markers[callsign].on('click', () => {
         if (path && path.length > 0) {
             const latest = path[path.length - 1];
@@ -381,7 +381,6 @@ async function updateMapAndUI(data) {
             const weatherIcon = document.getElementById('weather-icon-container');
 
             if (weatherDesc) {
-                // Update the overlay to show THIS specific tracker's weather
                 weatherDesc.innerText = `${callsign}: ${latest.weather || 'Unknown'}`;
                 weatherDetails.innerText = `${latest.temp || '--'} | Wind: ${latest.wind || '--'}`;
                 
